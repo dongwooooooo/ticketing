@@ -51,6 +51,21 @@ bash scripts/race-payment.sh 1 idem-X 50   # 같은 idempotency-key로 동시 50
 
 상세 시나리오 9가지: [docs/run.md](docs/run.md). 만료 분기, 자가 취소, PG callback 중복, 결과 일관성 검증 쿼리 포함.
 
+## 부하 target TPS (Stage 3+에서 활용)
+
+토스 개발자 thread (https://techchat.tosspayments.com/m/1496004223027122206) baseline:
+
+| 시나리오 | TPS |
+|---|---|
+| 일반 이벤트 sustained | **10 ~ 200 TPS** |
+| 대규모 이벤트 peak (드물게) | **수천 TPS** 순간 집중 |
+
+본 Lab 대전제 (BTS 50K 좌석 + 동시 접속 500K + 매진 60분):
+- Sustained 200 TPS
+- Peak 5,000 TPS (오픈 0~10초)
+
+본 모듈은 race repro 목적이라 동시 100~1,000만 측정. 실제 부하 시나리오는 Stage 3 (queue) — [docs/payment-testing.md](docs/payment-testing.md) §"부하 target TPS".
+
 ## 다음 스테이지로 이동 트리거
 
 본 모듈에서 race condition 재현 측정을 끝낸 뒤, 같은 도메인 모델을 `concurrency/`로 복사 → 동시성 제어 도입.
