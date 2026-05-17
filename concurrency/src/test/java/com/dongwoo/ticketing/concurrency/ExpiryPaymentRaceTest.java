@@ -58,7 +58,7 @@ class ExpiryPaymentRaceTest {
         // 결제 발생
         Payment payment = paymentService.request(resId, 250000, "idem-race-" + System.nanoTime());
 
-        // 만료 처리 + callback SUCCESS 동시 발사
+        // 만료 처리 + callback SUCCESS 동시 실행
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch done = new CountDownLatch(2);

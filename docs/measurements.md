@@ -77,7 +77,7 @@ final reservation status: EXPIRED
 ```
 
 - atomic UPDATE WHERE status=expected 채택
-- 만료 스케줄러 + callback SUCCESS를 동시 발사
+- 만료 스케줄러 + callback SUCCESS를 동시 실행
 - 두 트랜잭션이 같은 row를 노렸으나 row-level lock + WHERE 조건 평가로 1건만 affected=1
 - 본 측정에서는 만료가 먼저 잡음 → status=EXPIRED (callback의 affected=0 → 환불 큐 로그)
 - 반대 케이스(callback 먼저) 도 가능: 가설은 "PAID 또는 EXPIRED 중 하나로 수렴"이며 충족

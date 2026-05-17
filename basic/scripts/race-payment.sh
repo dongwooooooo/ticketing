@@ -11,7 +11,7 @@ CONCURRENCY="${3:-50}"
 AMOUNT="${AMOUNT:-250000}"
 BASE_URL="${BASE_URL:-http://localhost:8080}"
 
-echo "Firing $CONCURRENCY concurrent payments with idempotency-key='$KEY' for reservation $RES_ID..."
+echo "Sending $CONCURRENCY concurrent payments with idempotency-key='$KEY' for reservation $RES_ID..."
 
 seq 1 "$CONCURRENCY" | xargs -P "$CONCURRENCY" -I {} sh -c "
   curl -s -o /dev/null -w '%{http_code}\n' \

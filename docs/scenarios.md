@@ -132,7 +132,7 @@
 
 #### SCN-P-04 callback timeout (30초 응답 없음)
 - 트리거: 우리 서버가 callback 처리 도중 30초 초과
-- 기대: PG가 재시도 발사 → SCN-P-03으로 수렴
+- 기대: PG가 재시도 호출 → SCN-P-03으로 수렴
 - 위반 영향: PG가 우리 응답 못 받음 → 무한 retry
 - 검증: `CallbackTimeoutTest` (C)
 - Stage 적용: C Q D
@@ -153,7 +153,7 @@
 
 ### 2.4 S — System 이벤트 시나리오
 
-#### SCN-S-01 만료 스케줄러 발사
+#### SCN-S-01 만료 스케줄러 실행
 - 트리거: `@Scheduled(fixedDelay=5000)` 5초마다
 - 기대: HELD + expires_at < now() 인 reservation을 EXPIRED 처리
 - 위반 영향: 만료 처리 누락 → 좌석 영구 점유
@@ -161,7 +161,7 @@
 - Stage 적용: B C Q D
 
 #### SCN-S-02 만료 처리 vs 결제 callback 동시 진입
-- 트리거: 만료 timer 발사 + PG callback이 같은 reservation에 동시
+- 트리거: 만료 timer 실행 + PG callback이 같은 reservation에 동시
 - 기대: 둘 중 하나만 affected rows == 1, 다른 하나는 == 0 + 후속 처리 무시
 - 위반 영향: PAID 상태가 EXPIRED로 덮임 → 사용자 결제 차감됐는데 좌석 없음
 - 검증: `ExpiryPaymentRaceTest` (C, fuzzing 100회)
@@ -174,8 +174,8 @@
 - 검증: `CancelCallbackRaceTest` (C)
 - Stage 적용: C Q D
 
-#### SCN-S-04 만료 스케줄러 다중 인스턴스 중복 발사
-- 트리거: Spring 인스턴스 N개에서 같은 시각 `@Scheduled` 발사
+#### SCN-S-04 만료 스케줄러 다중 인스턴스 중복 실행
+- 트리거: Spring 인스턴스 N개에서 같은 시각 `@Scheduled` 트리거
 - 기대: ShedLock으로 한 인스턴스만 실행
 - 위반 영향: 같은 reservation을 두 번 EXPIRED 처리 시도 → 두 번째는 affected rows == 0이라 무시되나 audit log 오염 + DB 부하
 - 검증: `MultiInstanceShedLockTest` (D)

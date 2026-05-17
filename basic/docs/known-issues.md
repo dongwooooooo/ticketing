@@ -6,7 +6,7 @@
 
 **현상**: 같은 좌석에 동시 100건 예매 요청이 들어오면 naive `findById` → 메모리 검사 → `save` 흐름이 모두 "AVAILABLE"을 읽고 전부 HELD를 기록한다.
 
-**재현**: `SeatRaceReproTest` — `ExecutorService(100)` + `CountDownLatch` 동시 발사 → `SELECT count(*) FROM reservation WHERE seat_id=? AND status='HELD'` 결과가 1보다 큼.
+**재현**: `SeatRaceReproTest` — `ExecutorService(100)` + `CountDownLatch` 동시 진입 → `SELECT count(*) FROM reservation WHERE seat_id=? AND status='HELD'` 결과가 1보다 큼.
 
 **왜 본 레포에서 안 푸는가**: 동시성 제어는 Stage 2의 핵심 주제. 본 레포가 race를 가지고 있어야 Stage 2의 가치가 측정 가능.
 
@@ -16,7 +16,7 @@
 
 **현상**: PG callback이 N회 도착하면 N번 결제 확정. `Idempotency-Key` 처리 없음.
 
-**재현**: `PaymentCallbackDuplicationReproTest` — 같은 paymentId로 callback 10회 발사 → `payment.status='CONFIRMED'` 변경이 10회 모두 발생.
+**재현**: `PaymentCallbackDuplicationReproTest` — 같은 paymentId로 callback 10회 전송 → `payment.status='CONFIRMED'` 변경이 10회 모두 발생.
 
 **왜 본 레포에서 안 푸는가**: 멱등성 처리 패턴은 Stage 2에서 비교 구현.
 
@@ -26,7 +26,7 @@
 
 **현상**: `ExpiryScheduler`가 만료 처리하는 동시에 PG callback이 도착하면 두 트랜잭션이 같은 row를 건드려 lost update 발생.
 
-**재현**: `ExpiryPaymentRaceReproTest` — 만료 처리와 callback을 동시 발사 → reservation.status가 비결정적.
+**재현**: `ExpiryPaymentRaceReproTest` — 만료 처리와 callback을 동시 진입 → reservation.status가 비결정적.
 
 **왜 본 레포에서 안 푸는가**: atomic UPDATE 패턴은 Stage 2의 deep dive 주제.
 

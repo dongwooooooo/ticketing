@@ -24,7 +24,7 @@ Stage 2의 3가지 핵심 race를 각각 패턴, 측정 시나리오, 가설, �
 |---|---|
 | Seat ID | 100 |
 | Concurrent threads | 100 |
-| Latch | `start.await()`로 동시 발사 |
+| Latch | `start.await()`로 동시 진입 |
 
 ### 가설 & 합격선
 
@@ -113,7 +113,7 @@ callback의 affected가 0이면 → 이미 만료/취소 → 환불 큐 enqueue 
 |---|---|
 | Reservation | HELD + `expires_at` 과거로 강제 |
 | Concurrent threads | 2 (만료 스레드 + callback 스레드) |
-| Latch | `start.await()`로 동시 발사 |
+| Latch | `start.await()`로 동시 진입 |
 
 ### 가설 & 합격선
 

@@ -9,9 +9,9 @@ SEAT_ID="${1:-1}"
 CONCURRENCY="${2:-100}"
 BASE_URL="${BASE_URL:-http://localhost:8080}"
 
-echo "Firing $CONCURRENCY concurrent reservations for seat $SEAT_ID..."
+echo "Sending $CONCURRENCY concurrent reservations for seat $SEAT_ID..."
 
-# xargs로 N개 병렬 발사
+# xargs로 N개 병렬 호출
 seq 1 "$CONCURRENCY" | xargs -P "$CONCURRENCY" -I {} sh -c "
   curl -s -o /dev/null -w '%{http_code}\n' \
     -X POST $BASE_URL/seats/$SEAT_ID/reservations \
