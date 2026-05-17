@@ -69,6 +69,18 @@ class PaymentIntegrationTest {
 
 본 Lab Stage 4에서 도입 검토 (다중 인스턴스 + 결제 cascade 시나리오).
 
+## 부하 테스트에 PG test mode 쓰면 안 되는 이유
+
+| PG | test 환경 부하 정책 |
+|---|---|
+| 토스페이먼츠 | 약관 "비정상 트래픽 차단". 발견 시 키 정지 / 가맹 계정 정지 가능 |
+| 포트원 | 동일. IP 차단 |
+| Stripe | 공식 가이드 "do not load test against test mode" (https://docs.stripe.com/rate-limits). 100 req/s 이상 throttle, 더 가면 차단 |
+
+이유: PG test 서버도 운영 인프라 공유 + 다른 가맹점과 공용. 자사 SLA 보호 + 악용 방지. **포트폴리오 시연이라도 절대 X**.
+
+→ 만 단위 부하 테스트는 **반드시 자체 mock**. 실 PG는 응답 형식·서명·idempotency 사양 검증용 단발만.
+
 ## 패턴 3 — PG 제공 sandbox / test mode
 
 대부분 PG가 **test mode 키** 제공. 실제 API 호출하지만 차감/송금 **X**.
@@ -155,8 +167,32 @@ PG ↔ 우리 서비스 사이 **계약(contract)**을 양쪽이 합의. 변경 
 |---|---|---|
 | basic | 1 (in-process mock) | 동시성 메시지 집중, 외부 의존 제거 |
 | concurrency | 1 + 환경변수 시나리오 (duplicate-callbacks, success-rate) | 멱등성/만료-결제 race 시나리오 직접 트리거 |
-| queue | 1 유지 | 대기열 메시지 집중, PG 의존 X |
+| queue | 1 유지 + **별도 컨테이너로 분리 검토** | 만 단위 부하 시 우리 서버 metric과 PG mock 처리 분리 |
 | distributed | 2 (WireMock) 도입 검토 | timeout/cascade 시나리오에 실제 HTTP 지연 필요 |
+
+### 부하 테스트 시 mock 분리 권고
+
+Stage 1 현재 in-process mock은 같은 JVM에서 callback 발사. 만 단위 동시 callback 시 우리 서버 부담이 PG mock 처리 + 비즈니스 로직 합산되어 metric 오염.
+
+부하 테스트 진입 시:
+
+```
+[ticketing 서버 :8080]  ──HTTP──>  [Mock PG 컨테이너 :8081 (WireMock 또는 자체 Spring)]
+       ▲                                  │
+       │                                  │ 1초 지연 후
+       └────── POST /payments/callback ───┘
+```
+
+자원 격리. 우리 서버 부하만 깨끗하게 측정. Stage 3 (queue) 또는 Stage 4 (distributed) 진입 시 도입.
+
+## 부하 vs 형식 검증 매트릭스
+
+| 목적 | 도구 | 규모 | 비고 |
+|---|---|---|---|
+| 동시성 race 재현 | In-process MockPaymentGateway | 100~1,000 동시 | 본 Lab 현재 |
+| 만 단위 부하 | 별도 mock 컨테이너 (WireMock / stripe-mock / 자체) | 10K+ TPS | 우리 자원까지 무제한 |
+| 실 PG 응답 형식 검증 | 토스/포트원/Stripe **test mode 키** + 테스트 카드 | 수십 건 단발 | PG ToS 준수 |
+| 운영급 부하 검증 | PG와 사전 협의 (dedicated test window) | 운영급 | 가맹 계약 + 별도 SLA |
 
 운영 통합 단계 (Lab 범위 밖):
 1. 토스페이먼츠 또는 포트원 가맹 계약
@@ -189,6 +225,13 @@ PG ↔ 우리 서비스 사이 **계약(contract)**을 양쪽이 합의. 변경 
 2. "실 PG 통합 단계는 토스페이먼츠 또는 포트원의 test mode 키 + 테스트 카드 번호로 검증합니다 (https://docs.tosspayments.com/reference/test)"
 3. "운영 환경 cascade 시나리오는 WireMock 컨테이너로 timeout/지연/실패를 주입해서 검증할 계획입니다"
 4. "본 Lab의 idempotency-key UNIQUE + INSERT ON CONFLICT 패턴은 실 PG에서도 그대로 유효 (PG가 retry로 중복 callback 보내는 사양이라)"
+
+면접관 "만 단위 부하 테스트는 PG test 서버에 그냥 쏘면 안 되나요?":
+
+1. "안 됩니다. 토스/포트원/Stripe 모두 test 환경에 부하 테스트 시도하면 약관 위반 + 키 정지입니다"
+2. "test 환경도 운영 인프라 공유라 자사 SLA 보호 + 다른 가맹점과 공용이기 때문입니다"
+3. "그래서 본 Lab은 자체 mock으로 만 단위 부하를 측정합니다. 실 PG는 응답 형식·서명·idempotency 사양 검증용으로만 단발 호출합니다"
+4. "운영급 부하 검증이 필요하면 PG와 별도 협의 (dedicated test window)로 진행합니다"
 
 면접관 추가 질문 "webhook 서명 검증은요?":
 - "토스는 HMAC-SHA256, 포트원은 RSA 헤더 검증. 본 Lab mock에는 없지만 운영 통합 시 callback handler 진입 직후 서명 검증 필터 추가"
