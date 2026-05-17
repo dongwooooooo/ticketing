@@ -32,17 +32,19 @@ public class PaymentAttempt {
     private LocalDateTime createdAt;
 
     @Builder
-    private PaymentAttempt(Long paymentId, String idempotencyKey) {
-        this.paymentId = paymentId;
+    private PaymentAttempt(String idempotencyKey) {
         this.idempotencyKey = idempotencyKey;
         this.status = PaymentAttemptStatus.REQUESTED;
     }
 
-    public static PaymentAttempt of(Long paymentId, String idempotencyKey) {
+    public static PaymentAttempt requesting(String idempotencyKey) {
         return PaymentAttempt.builder()
-                .paymentId(paymentId)
                 .idempotencyKey(idempotencyKey)
                 .build();
+    }
+
+    public void linkPayment(Long paymentId) {
+        this.paymentId = paymentId;
     }
 
     @PrePersist

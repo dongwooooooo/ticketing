@@ -61,6 +61,13 @@ Stage 1(`basic/`)의 known-issues를 본 Stage에서 해결한 항목과 다음 
 - 운영에선 outbox + 별도 워커 필요
 - Stage 4에서 outbox + retry 도입
 
+### I-011 Lock cascade anti-pattern 의도적 재현 미수행
+
+- dd1 한계 §2에 anti-pattern §1.5 (외부 호출 cascade)을 설명만 하고 측정 안 함
+- 재현하려면 트랜잭션 안에 `Thread.sleep` 또는 mock external call 주입 필요 → 의도적 buggy 코드 추가
+- 본 코드는 cascade 미발생 (트랜잭션 안에 외부 호출 없음)이라 측정 의미 없음
+- 별도 anti-pattern 모듈 또는 AspectJ 주입으로 Stage 3+ 진입 시 측정 가능
+
 ### I-010 좌석 release 분리 트랜잭션 windowing
 
 - reservation EXPIRED 마킹 후 seat release loop는 별도 트랜잭션

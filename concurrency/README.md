@@ -11,6 +11,7 @@ Stage 1(`basic/`)이 의도적으로 남겨둔 race condition 3종을 해결한�
 | 만료-callback race | `setStatus`로 lost update | atomic `UPDATE ... WHERE status=:expected` |
 
 상세 1:1 diff: [docs/changes-from-basic.md](docs/changes-from-basic.md)
+ERD + 플로우 + 상태 전이 + 4-stage 진화: [docs/domain.md](docs/domain.md)
 
 ## Deep Dives
 

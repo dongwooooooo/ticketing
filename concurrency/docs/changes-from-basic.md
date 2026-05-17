@@ -65,19 +65,21 @@ int expireOverdue();
 **파일**: `concurrency/src/main/java/com/dongwoo/ticketing/service/PaymentService.java`
 
 ```java
+PaymentAttempt attempt;
 try {
-    paymentAttemptRepository.saveAndFlush(
-            PaymentAttempt.of(payment.getId(), idempotencyKey));
+    attempt = paymentAttemptRepository.saveAndFlush(
+            PaymentAttempt.requesting(idempotencyKey));
 } catch (DataIntegrityViolationException e) {
-    // 같은 key 이미 존재 → 기존 응답 그대로 반환 (멱등 hit)
-    var existing = paymentAttemptRepository.findByIdempotencyKey(idempotencyKey)
-            .orElseThrow(...);
+    var existing = paymentAttemptRepository.findByIdempotencyKey(idempotencyKey).orElseThrow(...);
     return paymentRepository.findById(existing.getPaymentId()).orElseThrow(...);
 }
+Payment payment = paymentRepository.save(Payment.request(reservationId, amount));
+attempt.linkPayment(payment.getId());
 ```
 
 - `basic/`은 같은 key로 N번 INSERT 가능 (멱등성 없음)
 - `concurrency/`는 DB UNIQUE가 race를 거부 → 1건만 통과, 나머지는 catch → 기존 결과 replay
+- attempt INSERT를 payment INSERT보다 앞에 둬서 race-loser 99건이 orphan payment row를 남기지 않도록 함
 
 락-free 패턴 채택 이유: [decision-journal/dd2-idempotency.md](decision-journal/dd2-idempotency.md)
 

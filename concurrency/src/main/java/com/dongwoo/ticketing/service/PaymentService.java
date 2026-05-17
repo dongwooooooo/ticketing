@@ -43,19 +43,24 @@ public class PaymentService {
             throw new IllegalStateException("reservation not HELD");
         }
 
-        // INSERT 시도 — UNIQUE constraint가 race 차단
-        Payment payment = paymentRepository.save(Payment.request(reservationId, amount));
+        // attempt INSERT 먼저 — UNIQUE constraint가 race 차단.
+        // payment INSERT 보다 앞에 둬서 conflict 99건이 orphan payment row를 남기지 않도록.
+        PaymentAttempt attempt;
         try {
-            paymentAttemptRepository.saveAndFlush(
-                    PaymentAttempt.of(payment.getId(), idempotencyKey));
+            attempt = paymentAttemptRepository.saveAndFlush(
+                    PaymentAttempt.requesting(idempotencyKey));
         } catch (DataIntegrityViolationException e) {
             // 같은 idempotency-key 이미 존재 — 기존 응답 반환 (멱등 hit)
             log.info("Idempotency replay: key={}", idempotencyKey);
-            var existingAttempt = paymentAttemptRepository.findByIdempotencyKey(idempotencyKey)
+            var existing = paymentAttemptRepository.findByIdempotencyKey(idempotencyKey)
                     .orElseThrow(() -> new IllegalStateException("attempt vanished after conflict"));
-            return paymentRepository.findById(existingAttempt.getPaymentId())
+            return paymentRepository.findById(existing.getPaymentId())
                     .orElseThrow(() -> new IllegalStateException("payment not found for existing attempt"));
         }
+
+        // 통과 1건만 payment INSERT 후 attempt에 paymentId 연결
+        Payment payment = paymentRepository.save(Payment.request(reservationId, amount));
+        attempt.linkPayment(payment.getId());
 
         gateway.dispatchPaymentCallback(payment.getId());
         return payment;
