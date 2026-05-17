@@ -24,9 +24,6 @@ public class PaymentAttempt {
     @Column(name = "idempotency_key", nullable = false, length = 300)
     private String idempotencyKey;
 
-    @Column(name = "request_hash", length = 128)
-    private String requestHash;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private PaymentAttemptStatus status;
@@ -35,31 +32,21 @@ public class PaymentAttempt {
     private LocalDateTime createdAt;
 
     @Builder
-    private PaymentAttempt(Long paymentId, String idempotencyKey, String requestHash) {
+    private PaymentAttempt(Long paymentId, String idempotencyKey) {
         this.paymentId = paymentId;
         this.idempotencyKey = idempotencyKey;
-        this.requestHash = requestHash;
         this.status = PaymentAttemptStatus.REQUESTED;
     }
 
-    public static PaymentAttempt of(Long paymentId, String idempotencyKey, String requestHash) {
+    public static PaymentAttempt of(Long paymentId, String idempotencyKey) {
         return PaymentAttempt.builder()
                 .paymentId(paymentId)
                 .idempotencyKey(idempotencyKey)
-                .requestHash(requestHash)
                 .build();
     }
 
     @PrePersist
     void onCreate() {
         this.createdAt = LocalDateTime.now();
-    }
-
-    public void succeed() {
-        this.status = PaymentAttemptStatus.SUCCEEDED;
-    }
-
-    public void fail() {
-        this.status = PaymentAttemptStatus.FAILED;
     }
 }

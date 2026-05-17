@@ -38,7 +38,7 @@ class HappyPathIntegrationTest {
         assertEquals(SeatStatus.HELD, seatRepository.findById(seatId).orElseThrow().getStatus());
 
         // 2. 결제 요청
-        var payment = paymentService.request(reservation.getId(), 250000, "idem-happy-1", "hash-1");
+        var payment = paymentService.request(reservation.getId(), 250000, "idem-happy-1");
         assertNotNull(payment.getId());
 
         // 3. PG callback 직접 호출 (mock 비동기 우회)

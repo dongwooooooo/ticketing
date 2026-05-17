@@ -34,7 +34,7 @@ PAY=$(curl -s -X POST "$BASE_URL/payments" \
   -H "X-User-Id: $USER_ID" \
   -H "Idempotency-Key: $IDEM_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"reservationId\": $RES_ID, \"amount\": 250000, \"method\": \"CARD\"}")
+  -d "{\"reservationId\": $RES_ID, \"amount\": 250000}")
 echo "$PAY"
 
 echo ""

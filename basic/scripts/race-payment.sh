@@ -19,7 +19,7 @@ seq 1 "$CONCURRENCY" | xargs -P "$CONCURRENCY" -I {} sh -c "
     -H 'X-User-Id: race-pay-user' \
     -H 'Idempotency-Key: $KEY' \
     -H 'Content-Type: application/json' \
-    -d '{\"reservationId\": $RES_ID, \"amount\": $AMOUNT, \"method\": \"CARD\"}'
+    -d '{\"reservationId\": $RES_ID, \"amount\": $AMOUNT}'
 " | sort | uniq -c
 
 echo ""

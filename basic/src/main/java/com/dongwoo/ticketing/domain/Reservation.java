@@ -81,8 +81,4 @@ public class Reservation {
     public boolean isHeld() {
         return this.status == ReservationStatus.HELD;
     }
-
-    public boolean isExpired() {
-        return LocalDateTime.now().isAfter(this.expiresAt);
-    }
 }

@@ -30,7 +30,7 @@ public class PaymentService {
     private final MockPaymentGateway gateway;
 
     @Transactional
-    public Payment request(Long reservationId, Integer amount, String idempotencyKey, String requestHash) {
+    public Payment request(Long reservationId, Integer amount, String idempotencyKey) {
         // Stage 1 naive: race condition 의도. 동시 요청 시 둘 다 "key 없음" 보고 둘 다 INSERT.
         var existing = paymentAttemptRepository.findFirstByIdempotencyKey(idempotencyKey);
         if (existing.isPresent()) {
@@ -47,10 +47,9 @@ public class PaymentService {
         }
 
         Payment payment = paymentRepository.save(Payment.request(reservationId, amount));
-        paymentAttemptRepository.save(PaymentAttempt.of(payment.getId(), idempotencyKey, requestHash));
+        paymentAttemptRepository.save(PaymentAttempt.of(payment.getId(), idempotencyKey));
 
-        // PG mock 비동기 callback 발사 (1초 후)
-        gateway.firePaymentCallback(payment.getId());
+        gateway.dispatchPaymentCallback(payment.getId());
 
         return payment;
     }

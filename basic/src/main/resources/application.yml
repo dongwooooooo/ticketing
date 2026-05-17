@@ -13,7 +13,6 @@ spring:
       ddl-auto: validate
     properties:
       hibernate:
-        format_sql: true
         jdbc.batch_size: 50
     open-in-view: false
   flyway:
@@ -36,10 +35,10 @@ management:
 logging:
   level:
     com.dongwoo.ticketing: info
-    org.hibernate.SQL: debug
+    org.hibernate.SQL: info
 
 ticketing:
   pgmock:
-    success-rate: 1.0
-    duplicate-callbacks: 0
+    latency-mean-ms: 120
+    latency-jitter-ms: 60
     callback-url: http://localhost:8080/payments/callback
