@@ -48,7 +48,7 @@ ALTER TABLE payment_attempt
 ```java
 try {
     paymentAttemptRepository.saveAndFlush(
-            PaymentAttempt.of(payment.getId(), idempotencyKey, requestHash));
+            PaymentAttempt.of(payment.getId(), idempotencyKey));
 } catch (DataIntegrityViolationException e) {
     var existing = paymentAttemptRepository.findByIdempotencyKey(idempotencyKey).orElseThrow(...);
     return paymentRepository.findById(existing.getPaymentId()).orElseThrow(...);
@@ -74,7 +74,7 @@ try {
 
 ## 6. 한계
 
-1. **같은 key + 다른 amount**: 현재 코드는 amount를 무시하고 기존 응답 반환. 운영상 위험 (사용자가 5만원→25만원으로 다시 요청해도 5만원 결과 받음). 운영 환경에선 `request_hash` 검증 추가 필요 — 본 코드는 hash 필드만 만들어두고 미검증.
+1. **같은 key + 다른 amount**: 현재 코드는 amount를 무시하고 기존 응답 반환. 운영상 위험 (사용자가 5만원→25만원으로 다시 요청해도 5만원 결과 받음). 운영 환경에선 요청 본문 해시 검증을 attempt에 함께 저장하여 mismatch 시 409 conflict 반환 필요. 본 Lab 범위 초과.
 2. **PG 호출 후 INSERT 실패 시점**: 현재 흐름은 `payment INSERT → attempt INSERT (race 차단)` 순서. attempt가 실패하면 payment row는 orphan. 운영에선 attempt INSERT를 먼저 하는 게 안전 (현재 reverse).
 3. **DataIntegrityViolationException 의존**: Spring이 SQLState 23505를 통해 변환하지만, DB 종류/드라이버 변경 시 mapping이 깨질 수 있음. Postgres에 종속.
 4. **TTL 없음**: idempotency key는 영구 보관. 1년 후 같은 key 재사용 시 stale 결과 반환. 운영에선 attempt에 TTL 필요.

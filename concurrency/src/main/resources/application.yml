@@ -13,7 +13,6 @@ spring:
       ddl-auto: validate
     properties:
       hibernate:
-        format_sql: true
         jdbc.batch_size: 50
     open-in-view: false
   flyway:
@@ -36,10 +35,13 @@ management:
 logging:
   level:
     com.dongwoo.ticketing: info
-    org.hibernate.SQL: debug
+    org.hibernate.SQL: info
 
 ticketing:
   pgmock:
-    success-rate: 1.0
-    duplicate-callbacks: 0
+    # latency 평균 120ms ±60ms (분포)
+    # 출처: Stripe production median ~120ms (Toss 공식 SLA 미공개)
+    # https://medium.com/@warstories/the-stripe-latency-post-mortem-every-engineer-should-read-before-launching-their-api-6514411772f8
+    latency-mean-ms: 120
+    latency-jitter-ms: 60
     callback-url: http://localhost:8081/payments/callback

@@ -4,7 +4,6 @@ import com.dongwoo.ticketing.api.dto.PaymentCallback;
 import com.dongwoo.ticketing.api.dto.PaymentRequest;
 import com.dongwoo.ticketing.api.dto.PaymentResponse;
 import com.dongwoo.ticketing.service.PaymentService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,11 +19,9 @@ public class PaymentController {
 
     @PostMapping
     public ResponseEntity<PaymentResponse> request(
-            @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
-            @RequestHeader(value = "X-Request-Hash", required = false) String requestHash,
-            @Valid @RequestBody PaymentRequest body,
-            HttpServletRequest request) {
-        var payment = paymentService.request(body.reservationId(), body.amount(), idempotencyKey, requestHash);
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody PaymentRequest body) {
+        var payment = paymentService.request(body.reservationId(), body.amount(), idempotencyKey);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(PaymentResponse.from(payment));
     }
 

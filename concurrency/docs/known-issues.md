@@ -52,8 +52,8 @@ Stage 1(`basic/`)의 known-issues를 본 Stage에서 해결한 항목과 다음 
 ### I-008 멱등 hit 시 amount 불일치 미검증
 
 - `idempotency-key`만 같고 amount가 다른 요청이 와도 기존 응답 그대로 반환
-- 운영에선 `request_hash` 검증 필요 — 본 모듈은 hash 필드만 두고 미검증
-- Stage 3에서 보완 (또는 별도 운영-grade 항목으로 격상)
+- 운영에선 요청 body 해시(`X-Request-Hash` 헤더 또는 internal hashing)로 동일 요청 여부 검증 필요
+- 본 Lab 범위 초과 — Stage 3 또는 별도 운영-grade 항목으로 격상
 
 ### I-009 환불 큐 미구현
 

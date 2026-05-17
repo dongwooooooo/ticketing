@@ -67,7 +67,7 @@ int expireOverdue();
 ```java
 try {
     paymentAttemptRepository.saveAndFlush(
-            PaymentAttempt.of(payment.getId(), idempotencyKey, requestHash));
+            PaymentAttempt.of(payment.getId(), idempotencyKey));
 } catch (DataIntegrityViolationException e) {
     // 같은 key 이미 존재 → 기존 응답 그대로 반환 (멱등 hit)
     var existing = paymentAttemptRepository.findByIdempotencyKey(idempotencyKey)

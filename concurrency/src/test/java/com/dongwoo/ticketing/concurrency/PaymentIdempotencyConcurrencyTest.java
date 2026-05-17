@@ -54,7 +54,7 @@ class PaymentIdempotencyConcurrencyTest {
                 try {
                     ready.countDown();
                     start.await();
-                    paymentService.request(resId, 250000, key, null);
+                    paymentService.request(resId, 250000, key);
                     success.incrementAndGet();
                 } catch (Exception e) {
                     errors.incrementAndGet();

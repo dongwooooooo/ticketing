@@ -35,7 +35,7 @@ public class PaymentService {
     private final MockPaymentGateway gateway;
 
     @Transactional
-    public Payment request(Long reservationId, Integer amount, String idempotencyKey, String requestHash) {
+    public Payment request(Long reservationId, Integer amount, String idempotencyKey) {
         // Reservation 검증 먼저 (HELD 아니면 즉시 reject)
         Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new IllegalArgumentException("reservation not found"));
@@ -47,7 +47,7 @@ public class PaymentService {
         Payment payment = paymentRepository.save(Payment.request(reservationId, amount));
         try {
             paymentAttemptRepository.saveAndFlush(
-                    PaymentAttempt.of(payment.getId(), idempotencyKey, requestHash));
+                    PaymentAttempt.of(payment.getId(), idempotencyKey));
         } catch (DataIntegrityViolationException e) {
             // 같은 idempotency-key 이미 존재 — 기존 응답 반환 (멱등 hit)
             log.info("Idempotency replay: key={}", idempotencyKey);
@@ -57,7 +57,7 @@ public class PaymentService {
                     .orElseThrow(() -> new IllegalStateException("payment not found for existing attempt"));
         }
 
-        gateway.firePaymentCallback(payment.getId());
+        gateway.dispatchPaymentCallback(payment.getId());
         return payment;
     }
 

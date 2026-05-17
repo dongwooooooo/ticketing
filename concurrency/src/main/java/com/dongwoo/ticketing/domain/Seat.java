@@ -27,9 +27,6 @@ public class Seat {
     @Column(nullable = false, length = 20)
     private SeatStatus status;
 
-    @Column(nullable = false)
-    private Long version;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -42,7 +39,6 @@ public class Seat {
         this.createdAt = now;
         this.updatedAt = now;
         if (this.status == null) this.status = SeatStatus.AVAILABLE;
-        if (this.version == null) this.version = 0L;
     }
 
     @PreUpdate
@@ -50,7 +46,6 @@ public class Seat {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Stage 1 의도적 naive 메서드 — 상태 검사도 없음
     public void hold() {
         this.status = SeatStatus.HELD;
     }

@@ -50,7 +50,7 @@ class ExpiryPaymentRaceTest {
         forceExpire(resId);
 
         // 결제 발생
-        Payment payment = paymentService.request(resId, 250000, "idem-race-" + System.nanoTime(), null);
+        Payment payment = paymentService.request(resId, 250000, "idem-race-" + System.nanoTime());
 
         // 만료 처리 + callback SUCCESS 동시 발사
         ExecutorService executor = Executors.newFixedThreadPool(2);

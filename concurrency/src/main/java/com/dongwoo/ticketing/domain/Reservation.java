@@ -66,23 +66,7 @@ public class Reservation {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void markPaid() {
-        this.status = ReservationStatus.PAID;
-    }
-
-    public void markExpired() {
-        this.status = ReservationStatus.EXPIRED;
-    }
-
-    public void markCancelled() {
-        this.status = ReservationStatus.CANCELLED;
-    }
-
     public boolean isHeld() {
         return this.status == ReservationStatus.HELD;
-    }
-
-    public boolean isExpired() {
-        return LocalDateTime.now().isAfter(this.expiresAt);
     }
 }
