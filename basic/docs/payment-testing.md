@@ -265,9 +265,31 @@ Stage 1 현재 in-process mock은 같은 JVM에서 callback 발사. 만 단위 �
 | 목적 | 도구 | 규모 | 비고 |
 |---|---|---|---|
 | 동시성 race 재현 | In-process MockPaymentGateway | 100~1,000 동시 | 본 Lab 현재 |
-| 만 단위 부하 | 별도 mock 컨테이너 (WireMock / stripe-mock / 자체) | 10K+ TPS | 우리 자원까지 무제한 |
+| 만 단위 부하 | 별도 mock 컨테이너 (samchon/payments / WireMock / 자체) | 10K+ TPS | 우리 자원까지 무제한 |
 | 실 PG 응답 형식 검증 | 토스/포트원/Stripe **test mode 키** + 테스트 카드 | 수십 건 단발 | PG ToS 준수 |
 | 운영급 부하 검증 | PG와 사전 협의 (dedicated test window) | 운영급 | 가맹 계약 + 별도 SLA |
+
+## 부하 target TPS (한국 이벤트 결제 baseline)
+
+토스 개발자 커뮤니티 thread "개발 중 부하 테스트 관련 문의"
+(https://techchat.tosspayments.com/m/1496004223027122206) 에서 추출:
+
+| 시나리오 | TPS | 근거 |
+|---|---|---|
+| 일반 이벤트 sustained | **10 ~ 200 TPS** | OP 자체 진술 (한국 일반 이벤트) |
+| 대규모 이벤트 peak (드물게) | **수천 TPS** 순간 집중 | OP 진술 |
+
+토스 답변 "상호명이 어떻게되실까요?" — **가맹점 단위 사전 협의** 필요. 일반 test 키만으로 부하 X.
+
+본 Lab은 직접 토스 sandbox에 부하 안 보내고, 위 수치를 자체 mock 부하 시나리오의 **target**으로 사용:
+
+| 시나리오 | k6 executor | target |
+|---|---|---|
+| 일반 이벤트 매진 시뮬레이션 | `constant-arrival-rate` | **200 TPS sustained, 60min** |
+| BTS급 peak (오픈 0~10초) | `ramping-arrival-rate` | **0 → 5,000 TPS in 10s, sustain 60s** |
+| Skewed workload (인기 좌석 집중) | `ramping-arrival-rate` + path 가중치 | VIP 2K 좌석에 80% 트래픽 |
+
+본 Lab BTS 대전제 (좌석 50K / 동시 접속 500K / Peak 5,000 TPS)는 토스 thread "수천 TPS 순간 집중"과 일치.
 
 운영 통합 단계 (Lab 범위 밖):
 1. 토스페이먼츠 또는 포트원 가맹 계약
