@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: ticketing-queue
+  datasource:
+    url: jdbc:postgresql://localhost:5433/ticketing
+    username: ticketing
+    password: ticketing
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 3000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc.batch_size: 50
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8082
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+logging:
+  level:
+    com.dongwoo.ticketing: info
+    org.hibernate.SQL: info
+
+ticketing:
+  pgmock:
+    # latency 평균 120ms ±60ms (분포)
+    # 출처: Stripe production median ~120ms (Toss 공식 SLA 미공개)
+    # https://medium.com/@warstories/the-stripe-latency-post-mortem-every-engineer-should-read-before-launching-their-api-6514411772f8
+    latency-mean-ms: 120
+    latency-jitter-ms: 60
+    callback-url: http://localhost:8082/payments/callback
+
+queue:
+  # Stage 3 — 매 100ms마다 admitNext(N) 호출. N=10 이면 100명/초.
+  admit-rate-per-tick: 10
+  # 입장 토큰 TTL: 5분. reservation HOLD 기간과 동일.
+  admitted-ttl-ms: 300000
