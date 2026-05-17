@@ -50,7 +50,8 @@
 
 ## 공통 docs/
 
-- `docs/scope.md` — 전체 대전제, 5만 좌석 산정 근거, BTS 실수치
+- `docs/scenarios.md` — **모든 스테이지 공통 시나리오 카탈로그** (User/Multi/Payment/System/Failure 30+ 시나리오, Stage별 책임 매트릭스, 우선순위 P0~P3, 시니어 비판 검토)
+- `docs/scope.md` — 전체 대전제, 5만 좌석 산정 근거, BTS 실수치 (작성 예정)
 - `docs/system-design.md` — hellointerview 스타일 시스템 디자인 (Stage 2부터 적용)
 - `docs/decision-journal/` — 각 deep dive 본인 사고 기록 5블록
 
