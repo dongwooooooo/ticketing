@@ -1,6 +1,6 @@
 rootProject.name = 'ticketing'
 
 include 'basic'
-// include 'concurrency'   // Stage 2 — enable when starting
+include 'concurrency'
 // include 'queue'         // Stage 3
 // include 'distributed'   // Stage 4

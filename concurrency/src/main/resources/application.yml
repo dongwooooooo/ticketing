@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: ticketing-concurrency
+  datasource:
+    url: jdbc:postgresql://localhost:5433/ticketing
+    username: ticketing
+    password: ticketing
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 3000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc.batch_size: 50
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+logging:
+  level:
+    com.dongwoo.ticketing: info
+    org.hibernate.SQL: debug
+
+ticketing:
+  pgmock:
+    success-rate: 1.0
+    duplicate-callbacks: 0
+    callback-url: http://localhost:8081/payments/callback
