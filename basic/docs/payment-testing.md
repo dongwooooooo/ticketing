@@ -131,11 +131,30 @@ https://github.com/stripe/stripe-mock
 docker run -d -p 12111:12111 -p 12112:12112 stripe/stripe-mock
 ```
 
-### 한국 PG — samchon/payments (커뮤니티, **MIT, 활성**)
+### 토스 공식 self-hosted mock — **없음 (확인 결과)**
+
+토스 공식 GitHub 8개 repo (2026-05 기준):
+
+| repo | 종류 |
+|---|---|
+| payment-sdk-ios, payment-sdk-android, browser-sdk | SDK |
+| tosspayments-sample, payment-samples, tosspayments-sample-v1 | 통합 sample 코드 |
+| brandpay-sdk-android-sample, BrandPay | BrandPay SDK |
+
+모두 SDK 또는 sample 통합 예시. **공식 mock server / Docker 이미지 없음**.
+
+토스 공식 테스트 옵션:
+1. **클라우드 sandbox** (https://developers.tosspayments.com/sandbox) — test mode 키 + 테스트 카드 + webhook URL 등록. 부하 테스트 금지
+2. **test mode API 키** (`test_ck_*`, `test_sk_*`) — 실 API 호출, 차감 X
+3. **테스트 카드 번호** (https://docs.tosspayments.com/reference/test)
+
+자체 호스팅 mock이 필요하면 커뮤니티 옵션 사용 (아래).
+
+### 한국 PG 사실상 표준 — samchon/payments (커뮤니티, **MIT, 활성**)
 
 https://github.com/samchon/payments
 
-토스페이먼츠 + 아임포트(포트원) 둘 다 mockup 서버 제공. **실 SDK 호환** — host만 mock으로 바꾸면 동일 코드 동작.
+토스 공식이 self-hosted mock을 제공하지 않으므로 사실상 표준. 토스페이먼츠 + 아임포트(포트원) 둘 다 mockup 서버 제공. **실 SDK 호환** — host만 mock으로 바꾸면 동일 코드 동작.
 
 | 항목 | 내용 |
 |---|---|
