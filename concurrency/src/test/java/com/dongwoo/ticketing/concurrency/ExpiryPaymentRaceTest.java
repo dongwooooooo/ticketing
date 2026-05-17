@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.CountDownLatch;
@@ -38,6 +38,7 @@ class ExpiryPaymentRaceTest {
     @Autowired PaymentService paymentService;
     @Autowired ExpiryService expiryService;
     @Autowired ReservationRepository reservationRepository;
+    @Autowired TransactionTemplate transactionTemplate;
 
     @Test
     @DisplayName("만료 처리와 결제 callback 동시 → reservation은 PAID 또는 EXPIRED 중 하나로 수렴 (둘 다 X)")
@@ -47,7 +48,12 @@ class ExpiryPaymentRaceTest {
         Long resId = reservation.getId();
 
         // expires_at을 과거로 강제 → ExpiryService가 만료시킬 수 있는 상태
-        forceExpire(resId);
+        transactionTemplate.executeWithoutResult(status -> {
+            int affected = reservationRepository.forceExpiresAt(resId, LocalDateTime.now().minusMinutes(10));
+            if (affected != 1) {
+                throw new IllegalStateException("forceExpire failed for id=" + resId);
+            }
+        });
 
         // 결제 발생
         Payment payment = paymentService.request(resId, 250000, "idem-race-" + System.nanoTime());
@@ -86,13 +92,5 @@ class ExpiryPaymentRaceTest {
         assertTrue(
                 finalState == ReservationStatus.PAID || finalState == ReservationStatus.EXPIRED,
                 "must converge to exactly PAID or EXPIRED, got: " + finalState);
-    }
-
-    @Transactional
-    void forceExpire(Long id) {
-        int affected = reservationRepository.forceExpiresAt(id, LocalDateTime.now().minusMinutes(10));
-        if (affected != 1) {
-            throw new IllegalStateException("forceExpire failed for id=" + id);
-        }
     }
 }

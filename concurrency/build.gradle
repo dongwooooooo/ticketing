@@ -44,4 +44,6 @@ tasks.named('test') {
 	useJUnitPlatform()
 	environment 'DOCKER_HOST', System.getenv('DOCKER_HOST') ?: 'unix:///Users/' + System.getProperty('user.name') + '/.docker/run/docker.sock'
 	environment 'TESTCONTAINERS_RYUK_DISABLED', 'true'
+	// Docker Engine 24.x supports up to API 1.43. Pin docker-java client.
+	systemProperty 'api.version', '1.43'
 }
