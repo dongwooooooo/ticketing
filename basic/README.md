@@ -29,25 +29,27 @@ Event > Schedule(1회차) > Section(VIP/R/S/A/스탠딩) > Seat(50,000)
 
 상세: [docs/domain-model.md](docs/domain-model.md)
 
-## 실행
+## 실행 + 검증
+
+상세 터미널 명령어: [docs/run.md](docs/run.md)
+
+빠른 시작 (3개 터미널):
 
 ```bash
-# 인프라 (PostgreSQL 5432)
-cd ../  # repo root
-docker-compose -f basic/docker-compose.yml up -d
+# 터미널 1: PostgreSQL
+cd /Users/idong-u/d/ticketing/basic && docker-compose up -d
 
-# 빌드
-./gradlew :basic:build
+# 터미널 2: 서버 (Flyway 마이그레이션 자동 실행 + 좌석 50K seed)
+cd /Users/idong-u/d/ticketing && ./gradlew :basic:bootRun
 
-# 테스트
-./gradlew :basic:test
-
-# 실행
-./gradlew :basic:bootRun
-
-# race condition 의도적 재현 (Stage 2 진입 근거)
-./gradlew :basic:test --tests '*RaceReproTest'
+# 터미널 3: 검증
+cd /Users/idong-u/d/ticketing/basic
+bash scripts/smoke.sh                   # happy path 자동 테스트
+bash scripts/race-reserve.sh 1 100      # 좌석 1에 동시 100건 예매 (oversell 재현)
+bash scripts/race-payment.sh 1 idem-X 50   # 같은 idempotency-key로 동시 50건 결제
 ```
+
+상세 시나리오 9가지: [docs/run.md](docs/run.md). 만료 분기, 자가 취소, PG callback 중복, 결과 일관성 검증 쿼리 포함.
 
 ## 다음 스테이지로 이동 트리거
 
