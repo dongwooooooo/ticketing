@@ -42,4 +42,6 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	environment 'DOCKER_HOST', System.getenv('DOCKER_HOST') ?: 'unix:///Users/' + System.getProperty('user.name') + '/.docker/run/docker.sock'
+	environment 'TESTCONTAINERS_RYUK_DISABLED', 'true'
 }

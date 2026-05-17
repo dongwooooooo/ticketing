@@ -27,7 +27,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics
+        include: health, info, metrics
   metrics:
     distribution:
       percentiles-histogram:
@@ -35,5 +35,11 @@ management:
 
 logging:
   level:
+    com.dongwoo.ticketing: info
     org.hibernate.SQL: debug
-    org.hibernate.orm.jdbc.bind: trace
+
+ticketing:
+  pgmock:
+    success-rate: 1.0
+    duplicate-callbacks: 0
+    callback-url: http://localhost:8080/payments/callback
