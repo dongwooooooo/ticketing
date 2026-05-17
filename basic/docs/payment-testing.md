@@ -121,17 +121,73 @@ curl -X POST https://api.tosspayments.com/v1/payments/confirm \
 
 본 Lab Stage 1~4에서는 사용 안 함 (개인 토이 프로젝트라 PG 계약 X). 면접 답변 시 "실 PG 통합은 test mode 키 + 테스트 카드 번호로 검증한다"고 설명.
 
-## 패턴 4 — Vendor-provided local mock (e.g. stripe-mock)
+## 패턴 4 — Vendor-provided local mock
+
+### stripe-mock (공식)
 
 https://github.com/stripe/stripe-mock
-
-Stripe 공식 mock server. 컨테이너로 띄우면 Stripe API 응답을 그대로 시뮬레이션.
 
 ```bash
 docker run -d -p 12111:12111 -p 12112:12112 stripe/stripe-mock
 ```
 
-토스/포트원은 공식 mock 미제공 → 패턴 2 (WireMock)으로 대체.
+### 한국 PG — samchon/payments (커뮤니티, **MIT, 활성**)
+
+https://github.com/samchon/payments
+
+토스페이먼츠 + 아임포트(포트원) 둘 다 mockup 서버 제공. **실 SDK 호환** — host만 mock으로 바꾸면 동일 코드 동작.
+
+| 항목 | 내용 |
+|---|---|
+| 라이선스 | MIT |
+| 활성도 | v10.0.0 (2025-03), 362★ |
+| 언어 | TypeScript / NestJS |
+| 패키지 | `fake-toss-payments-server`, `fake-iamport-server`, `payment-backend`(통합 PG MSA), `toss-payments-server-api`(SDK), `iamport-server-api`(SDK) |
+| 포트 | fake-toss 30771 |
+| Webhook | `FakeTossConfiguration.WEBHOOK_URL` 설정으로 우리 서버 callback URL 지정 |
+| 토스 API | `key_in`, `approve`, `billing`, `cancel` 등 실 사양 |
+| Docker | 공식 이미지 미공개 → npm 또는 자체 Dockerfile |
+
+빠른 실행:
+
+```bash
+git clone https://github.com/samchon/payments
+cd payments/packages/fake-toss-payments-server
+npm install
+npm run build
+npm run start    # → http://localhost:30771
+```
+
+본 Lab과 연결:
+
+```typescript
+// fake-toss-payments-server 설정 (npm module로 사용 시)
+import FakeToss from "fake-toss-payments-server";
+FakeToss.FakeTossConfiguration.WEBHOOK_URL = "http://localhost:8080/payments/callback";
+```
+
+우리 ticketing 서버는 토스 SDK로 결제 호출:
+
+```java
+// Stage 3+ 도입 시 PaymentService 변형 (의사 코드)
+RestTemplate toss = new RestTemplate();
+ResponseEntity<TossPaymentResponse> resp = toss.exchange(
+    "http://localhost:30771/v1/payments/confirm",
+    HttpMethod.POST,
+    new HttpEntity<>(body, headers),  // headers에 Idempotency-Key
+    TossPaymentResponse.class
+);
+// 1초 후 fake 서버가 우리 /payments/callback 으로 webhook 발사
+```
+
+장점:
+- 실 토스 API 형식 그대로 (signature, idempotency-key, response shape)
+- 만 단위 부하 가능 (Node.js 컨테이너 자원까지)
+- 면접 답변 "토스 SDK + 자체 mock 서버로 운영 통합 흐름 검증"
+
+단점:
+- 우리 PaymentService 코드를 토스 SDK 형식으로 마이그레이션 필요
+- Node.js 별도 띄움
 
 | 장점 | 단점 |
 |---|---|
@@ -167,8 +223,8 @@ PG ↔ 우리 서비스 사이 **계약(contract)**을 양쪽이 합의. 변경 
 |---|---|---|
 | basic | 1 (in-process mock) | 동시성 메시지 집중, 외부 의존 제거 |
 | concurrency | 1 + 환경변수 시나리오 (duplicate-callbacks, success-rate) | 멱등성/만료-결제 race 시나리오 직접 트리거 |
-| queue | 1 유지 + **별도 컨테이너로 분리 검토** | 만 단위 부하 시 우리 서버 metric과 PG mock 처리 분리 |
-| distributed | 2 (WireMock) 도입 검토 | timeout/cascade 시나리오에 실제 HTTP 지연 필요 |
+| queue | **4 (samchon/payments fake-toss) 도입 권고** | 만 단위 부하 + 실 토스 사양 학습 + Node.js 컨테이너 자원 격리 |
+| distributed | 4 유지 + timeout/cascade 시나리오 강화 | 분산 환경 결제 cascade는 실 HTTP 통신 검증 필요 |
 
 ### 부하 테스트 시 mock 분리 권고
 
