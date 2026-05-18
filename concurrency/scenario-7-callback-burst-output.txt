@@ -1,0 +1,19 @@
+===== SCENARIO #7 — 결제 콜백 폭주 =====
+[default executor = SimpleAsyncTaskExecutor]
+peak thread count: 1016 (baseline 15)
+peak heap MB: 200 (baseline 50 MB)
+wall time ms: 899
+PAID 전이: 1000/1000
+errors: 0
+completed within timeout: true
+
+[ThreadPoolTaskExecutor core=20 max=50 queue=500]
+peak thread count: 66 (baseline 15)
+peak heap MB: 86 (baseline 50 MB)
+wall time ms: 369
+PAID 전이: 550/1000
+errors: 450
+completed within timeout: true
+
+차이: 스레드 15.4배 감소 (1016 → 66), 메모리 2.3배 차이 (200 MB → 86 MB).
+=======================================

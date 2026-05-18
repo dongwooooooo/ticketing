@@ -47,4 +47,9 @@ tasks.named('test') {
 	environment 'TESTCONTAINERS_RYUK_DISABLED', 'true'
 	// Docker Engine 24.x supports up to API 1.43. Pin docker-java client.
 	systemProperty 'api.version', '1.43'
+
+	// SCN #9 — GC pause during pessimistic lock. JVM args 변형 비교용 -DgcPauseMs 패스스루.
+	def gcPauseMs = System.getProperty('gcPauseMs') ?: '500'
+	jvmArgs '-XX:+UseG1GC', "-XX:MaxGCPauseMillis=${gcPauseMs}", '-Xms256m', '-Xmx512m'
+	systemProperty 'gcPauseMs', gcPauseMs
 }

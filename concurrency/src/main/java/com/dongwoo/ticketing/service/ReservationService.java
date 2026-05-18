@@ -8,6 +8,7 @@ import com.dongwoo.ticketing.repository.ReservationRepository;
 import com.dongwoo.ticketing.repository.SeatRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,20 +38,37 @@ public class ReservationService {
 
     private final SeatRepository seatRepository;
     private final ReservationRepository reservationRepository;
+    private final SoldOutCache soldOutCache;
+    private final ReservationMetrics metrics;
+
+    @Value("${ticketing.fast-path.enabled:false}")
+    private boolean fastPathEnabled;
 
     private static final Duration HOLD_DURATION = Duration.ofMinutes(5);
 
     @Transactional
     public Reservation reserve(Long seatId, String userId) {
+        metrics.incServiceCall();
+
+        // fast path — application-level 매진 차단. 봇 트래픽 흡수용.
+        if (fastPathEnabled && soldOutCache.isSoldOut(seatId)) {
+            metrics.incFastPathReject();
+            throw new SeatNotAvailableException("seat " + seatId + " sold out (fast path)");
+        }
+
+        metrics.incDbHit();
         Seat seat = seatRepository.findByIdForUpdate(seatId)
                 .orElseThrow(() -> new IllegalArgumentException("seat not found: " + seatId));
 
         if (seat.getStatus() != SeatStatus.AVAILABLE) {
+            // DB 진입 후 발견 — fast path가 빠뜨린 케이스(이제 막 매진 전이)도 마킹
+            soldOutCache.markSoldOut(seatId);
             throw new SeatNotAvailableException("seat " + seatId + " status=" + seat.getStatus());
         }
 
         seat.hold();
         seatRepository.save(seat);
+        soldOutCache.markSoldOut(seatId);
 
         try {
             Reservation reservation = Reservation.create(seatId, userId, HOLD_DURATION);
@@ -84,6 +102,7 @@ public class ReservationService {
                 .orElseThrow(() -> new IllegalStateException("seat not found"));
         seat.release();
         seatRepository.save(seat);
+        soldOutCache.release(seat.getId());
     }
 
     public static class SeatNotAvailableException extends RuntimeException {

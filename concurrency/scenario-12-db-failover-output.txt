@@ -1,0 +1,14 @@
+===== SCENARIO #12 — DB master 장애 =====
+[master kill 시점]
+thread A 결과: COMMIT_FAILED: PSQLException — An I/O error occurred while sending to the backend.
+in-flight reservation: 미존재
+seat status: AVAILABLE
+
+[재시작 후 thread C 재시도]
+재시도 결과: success
+partial UNIQUE 위반: no
+재시도 후 reservation 행수: 1
+재시도 후 seat status: HELD
+
+영향: 사용자 A 는 30초 spinner 후 에러. 좌석 1 상태 = AVAILABLE → 재시도 후 HELD. 재시도 가능 여부 = yes.
+=======================================

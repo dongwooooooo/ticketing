@@ -1,0 +1,25 @@
+===== SCENARIO #10 — 매진 후 봇 트래픽 =====
+측정 설정: 봇 VUs=200, 부하 지속=10000ms, 매진 좌석=100, 정상 사용자 시도=8 (interval 1200ms)
+Hikari maximum-pool-size=10 (application.yml 기준)
+============================================
+
+[fast path 부재 — 모든 요청 DB 도달]
+  매진 좌석 throughput: 5889.7 ops/sec
+  봇 총 요청: 59333 (sold-out reject=59333, other err=0)
+  정상 사용자 (좌석 200) avg: 22ms, p99: 39ms, max: 39ms (success=8/8)
+  HikariCP active peak: 10/10, pending peak: 191
+  DB query rate (reserve 진입): 5890/sec (totalDbHits=59341, serviceCalls=59341, fastPathRejects=0)
+
+[fast path 적용 — application 차단]
+  매진 좌석 throughput: 218892.4 ops/sec
+  봇 총 요청: 2189800 (sold-out reject=2189800, other err=0)
+  정상 사용자 (좌석 200) avg: 6ms, p99: 9ms, max: 9ms (success=8/8)
+  HikariCP active peak: 10/10, pending peak: 159
+  DB query rate (reserve 진입): 0/sec (totalDbHits=8, serviceCalls=2189808, fastPathRejects=2189800)
+
+============================================
+영향 요약:
+  정상 사용자 p99 — baseline 39ms vs fast-path 9ms (speedup x4.33)
+  DB hit 감소율: 99% (baseline 59341 → fast-path 8)
+  HikariCP active peak — baseline 10 vs fast-path 10
+============================================

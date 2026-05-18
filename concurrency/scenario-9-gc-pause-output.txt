@@ -1,0 +1,69 @@
+===== SCENARIO #9 — GC pause 영향 =====
+
+[run @ 2026-05-18T15:19:48.284956 — MaxGCPauseMillis=500]
+  GC count delta: 5
+  GC total time delta: 115 ms
+  GC avg pause: 23 ms
+  GC max upper-bound: 115 ms
+  winner reserve duration: 313 ms (락 보유 + heap pressure 포함)
+  contender wait min: 299 ms
+  contender wait p50: 374 ms
+  contender wait p99: 411 ms
+  contender wait max: 411 ms
+  contender success / rejected: 1 / 99
+
+[run @ 2026-05-18T15:20:06.301662 — MaxGCPauseMillis=50]
+  GC count delta: 5
+  GC total time delta: 96 ms
+  GC avg pause: 19 ms
+  GC max upper-bound: 96 ms
+  winner reserve duration: 257 ms (락 보유 + heap pressure 포함)
+  contender wait min: 247 ms
+  contender wait p50: 293 ms
+  contender wait p99: 330 ms
+  contender wait max: 330 ms
+  contender success / rejected: 1 / 99
+
+===== 비교 요약 =====
+변형                     winner duration  GC total  contender p99
+MaxGCPauseMillis=500     313 ms           115 ms    411 ms
+MaxGCPauseMillis=50      257 ms            96 ms    330 ms
+
+  - 두 변형 모두 winner 락 보유 시간이 250~310ms (heap pressure 포함). baseline
+    (GC pause 없는 정상 reserve) ~5~20ms 대비 15~60배.
+  - MaxGCPauseMillis=50 변형은 G1이 young GC를 더 잘게 쪼개 평균 pause는 줄었으나,
+    동일한 heap pressure 워크로드에서는 총 GC 시간(96ms vs 115ms)과 대기 thread
+    p99(330ms vs 411ms)에서 ~20% 개선에 그침. 락 보유 중 GC가 발생하면 어떤 튜닝
+    으로도 대기 thread는 winner의 GC pause만큼 추가 대기를 한다.
+
+===== 영향 분석 =====
+영향: 락 보유 중 GC pause = 사실상 락 timeout 연장.
+  - PostgreSQL FOR UPDATE 락은 application-level이 아니라 트랜잭션 단위라 STW로
+    멈춘 JVM client의 락을 외부에서 깰 방법이 없다 (autovacuum/lock_timeout은
+    설정 안 하면 무한정 대기).
+  - Kleppmann DDIA §8 fencing token anti-pattern 의 단일 노드 변형: 락은 살아있지만
+    holder가 STW로 멈춘 동안 다른 thread는 그 시간만큼 응답 지연.
+  - 분산 환경이라면 더 심각: lease lock의 TTL이 GC pause보다 짧으면 lock holder가
+    GC 끝난 뒤 자신이 lock을 잃었다는 것을 모르고 작업을 계속 (DDIA Fig 8-4).
+
+===== 사용자 관점 결론 =====
+사용자 A가 R열 1번을 클릭한 순간 서버 JVM에서 GC pause가 발생하면:
+  - 평소 응답: 5~20ms 내 "예매 완료" 또는 "이미 선점됨" 메시지
+  - GC pause 시: 같은 좌석 노리는 사용자 B는 ~330~411ms 동안 로딩 스피너 응시.
+    동시 100명 환경에서 대기 thread p99가 정상치의 20~80배.
+  - 단일 사용자에게는 "왜 이렇게 느리지?" 정도지만, 인기 좌석에 동시 100명이
+    몰리면 락 직렬화 + GC pause가 누적되어 마지막 thread는 수 초 대기 후
+    "이미 선점됨" 응답을 받음. (체감 UX: 사이트가 먹통)
+
+===== anti-pattern §1.5 보강 결론 =====
+비관적 락은 "lock holder의 wall-clock 시간"에 시스템 응답성이 종속된다.
+holder JVM이 STW pause에 들어가면 락은 살아있는 채로 모든 대기자가 멈춘다.
+완화책 세 가지:
+  1. 락 보유 시간 최소화: 트랜잭션 안에서 heap 할당/외부 호출/I/O 금지.
+     ReservationService.reserve() 처럼 SELECT FOR UPDATE → UPDATE → COMMIT 만.
+  2. lock_timeout 설정: PostgreSQL `SET lock_timeout = '500ms'` 로 contender가
+     무한 대기하지 않게 하고, 실패 시 즉시 사용자에게 "재시도" UX 반환.
+  3. 분산 환경에서 fencing token 도입: lease lock 발급 시 monotonic token 부여,
+     write 시 token 검증 (DDIA §8 Fig 8-5). 단일 노드라도 GC pause 후 stale
+     holder가 commit하지 못하게 동일 패턴 적용 가능.
+=======================================
