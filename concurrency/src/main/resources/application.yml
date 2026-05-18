@@ -20,17 +20,21 @@ spring:
     locations: classpath:db/migration
 
 server:
-  port: 8081
+  port: 28081
 
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, metrics
+        include: health, info, metrics, prometheus
   metrics:
+    tags:
+      stage: concurrency
     distribution:
       percentiles-histogram:
         http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
 
 logging:
   level:
@@ -44,4 +48,4 @@ ticketing:
     # https://medium.com/@warstories/the-stripe-latency-post-mortem-every-engineer-should-read-before-launching-their-api-6514411772f8
     latency-mean-ms: 120
     latency-jitter-ms: 60
-    callback-url: http://localhost:8081/payments/callback
+    callback-url: http://localhost:28081/payments/callback

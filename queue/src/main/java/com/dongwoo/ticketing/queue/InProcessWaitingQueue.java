@@ -113,6 +113,14 @@ public class InProcessWaitingQueue implements WaitingQueue {
         });
     }
 
+    public int waitingSize() {
+        return waiting.size();
+    }
+
+    public int admittedSize() {
+        return admitted.size();
+    }
+
     /** 테스트용 reset. 운영 코드에선 사용 금지. */
     public void clear() {
         waiting.clear();

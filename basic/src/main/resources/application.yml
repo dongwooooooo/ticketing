@@ -20,17 +20,21 @@ spring:
     locations: classpath:db/migration
 
 server:
-  port: 8080
+  port: 28080
 
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, metrics
+        include: health, info, metrics, prometheus
   metrics:
+    tags:
+      stage: basic
     distribution:
       percentiles-histogram:
         http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
 
 logging:
   level:
@@ -41,4 +45,4 @@ ticketing:
   pgmock:
     latency-mean-ms: 120
     latency-jitter-ms: 60
-    callback-url: http://localhost:8080/payments/callback
+    callback-url: http://localhost:28080/payments/callback
