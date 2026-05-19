@@ -23,3 +23,50 @@ Hikari maximum-pool-size=10 (application.yml 기준)
   DB hit 감소율: 99% (baseline 59341 → fast-path 8)
   HikariCP active peak — baseline 10 vs fast-path 10
 ============================================
+
+================================================
+RE-MEASUREMENT (CAS 적용 후, 2026-05-19, commit 2035d6b)
+================================================
+측정 설정: 봇 VUs=200, 부하 지속=10000ms, 매진 좌석=100, 정상 사용자 시도=8 (interval 1200ms)
+Hikari maximum-pool-size=10 (application.yml 기준)
+============================================
+
+[fast path 부재 — 모든 요청 DB 도달]
+  매진 좌석 throughput: 6404.9 ops/sec
+  봇 총 요청: 65240 (sold-out reject=65240, other err=0)
+  정상 사용자 (좌석 200) avg: 29ms, p99: 54ms, max: 54ms (success=8/8)
+  HikariCP active peak: 10/10, pending peak: 191
+  DB query rate (reserve 진입): 6405/sec (totalDbHits=65248, serviceCalls=65248, fastPathRejects=0)
+
+[fast path 적용 — application 차단]
+  매진 좌석 throughput: 226725.5 ops/sec
+  봇 총 요청: 2274964 (sold-out reject=2274964, other err=0)
+  정상 사용자 (좌석 200) avg: 5ms, p99: 7ms, max: 7ms (success=8/8)
+  HikariCP active peak: 10/10, pending peak: 190
+  DB query rate (reserve 진입): 0/sec (totalDbHits=8, serviceCalls=2274972, fastPathRejects=2274964)
+
+============================================
+영향 요약 (CAS):
+  정상 사용자 p99 — baseline 54ms vs fast-path 7ms (speedup x7.71)
+  DB hit 감소율: 99% (baseline 65248 → fast-path 8)
+  HikariCP active peak — baseline 10 vs fast-path 10
+============================================
+
+비관적 락 시점 vs CAS 차이:
+- baseline 봇 throughput: 5890 → 6405 ops/sec (+9%). CAS UPDATE 가 락 wait 없이
+  바로 affected=0 반환하므로 봇 거절 속도 약간 증가.
+- baseline 정상 사용자 p99: 39ms → 54ms (+38%). 봇 throughput 이 높아져 정상
+  사용자 reserve() 가 HikariCP pending=191 queue 에서 더 오래 대기 (Hikari 10
+  pool 한계가 결정 변수). CAS 가 봇 거절 속도를 올린 부작용이 정상 사용자에게
+  돌아옴.
+- fast-path 봇 throughput: 218892 → 226725 ops/sec (+4%). 둘 다 application 차단
+  이라 DB 미진입 → 락 전략 무관.
+- fast-path 정상 사용자 p99: 9ms → 7ms (-22%). CAS 가 fast-path 통과 시 짧은
+  UPDATE + INSERT 만 수행, FOR UPDATE 락 보유 시간 없음 → 정상 사용자 응답 단축.
+- speedup: x4.33 → x7.71. SoldOutCache fast-path 효과가 CAS 와 결합하면 더 큼.
+
+핵심 통찰: fast-path 자체는 application 차단이라 락 전략과 무관하지만, "baseline
+악화 + fast-path 추가 개선" 양방향으로 speedup 이 커짐. CAS 가 락 wait 를 줄이고
+대신 DB 진입 빈도를 높이는 효과가 봇 트래픽 시나리오에서는 양면성을 가짐 — fast-path
+없으면 봇이 DB 를 더 빨리 두드림, fast-path 있으면 정상 사용자만 더 빠름.
+=======================================

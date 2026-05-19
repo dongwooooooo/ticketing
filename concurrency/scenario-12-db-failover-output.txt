@@ -12,3 +12,35 @@ partial UNIQUE 위반: no
 
 영향: 사용자 A 는 30초 spinner 후 에러. 좌석 1 상태 = AVAILABLE → 재시도 후 HELD. 재시도 가능 여부 = yes.
 =======================================
+
+================================================
+RE-MEASUREMENT (CAS 적용 후, 2026-05-19, commit 2035d6b)
+================================================
+[master kill 시점]
+thread A 결과: COMMIT_FAILED: PSQLException — An I/O error occurred while sending to the backend.
+in-flight reservation: 미존재
+seat status: AVAILABLE
+
+[재시작 후 thread C 재시도]
+재시도 결과: success
+partial UNIQUE 위반: no
+재시도 후 reservation 행수: 1
+재시도 후 seat status: HELD
+
+영향: 사용자 A 는 30초 spinner 후 에러. 좌석 1 상태 = AVAILABLE → 재시도 후 HELD. 재시도 가능 여부 = yes.
+
+비관적 락 시점 vs CAS 차이:
+- thread A 결과 동일 (COMMIT_FAILED). connection broken → tx rollback 은
+  PostgreSQL 트랜잭션 원자성이 보장. 락 전략 무관.
+- in-flight reservation 미존재 / seat AVAILABLE 동일. 단, 비관적 락 시점에는
+  in-flight FOR UPDATE 가 connection 끊김과 함께 자동 해제되었고, CAS 시점에는
+  in-flight UPDATE 자체가 rollback. 외부 관측 결과는 동일.
+- thread C 재시도 success 동일. partial UNIQUE (uq_reservation_seat_active) 가
+  마지막 방어선 — 둘 다 active reservation 없으므로 통과.
+- 참고: DbFailoverTest 는 Spring context 없이 raw JDBC 로 트랜잭션을 직접 구성
+  하므로 ReservationService.reserve() (CAS) 를 거치지 않음. 정확히는 "CAS 적용
+  여부와 무관하게 PG 트랜잭션 원자성이 동일 결과를 보장" 을 재확인.
+
+핵심 통찰: CAS 영향 없음. DB master failover 는 트랜잭션 원자성 + 재시도
+가능성 검증이 본질이라 락 전략과 직교.
+=======================================

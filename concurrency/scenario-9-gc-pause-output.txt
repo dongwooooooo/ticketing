@@ -67,3 +67,58 @@ holder JVM이 STW pause에 들어가면 락은 살아있는 채로 모든 대기
      write 시 token 검증 (DDIA §8 Fig 8-5). 단일 노드라도 GC pause 후 stale
      holder가 commit하지 못하게 동일 패턴 적용 가능.
 =======================================
+
+================================================
+RE-MEASUREMENT (CAS 적용 후, 2026-05-19, commit 2035d6b)
+================================================
+주의: contender 경로(ReservationService.reserve)는 CAS UPDATE 로 전환되었으나,
+winner 경로는 동일 테스트가 직접 seatRepository.findByIdForUpdate(seatId) 를 호출하므로
+비관적 락 보유 시나리오 자체는 유지. 즉 "락 보유자가 GC pause 에 들어갔을 때
+CAS contender 가 얼마나 빠르게 풀려나는가" 를 새로 측정.
+
+[run @ 2026-05-19T17:36:23 — MaxGCPauseMillis=500]
+  GC count delta: 4
+  GC total time delta: 88 ms
+  GC avg pause: 22 ms
+  GC max upper-bound: 88 ms
+  winner reserve duration: 226 ms (락 보유 + heap pressure 포함)
+  contender wait min: 201 ms
+  contender wait p50: 223 ms
+  contender wait p99: 235 ms
+  contender wait max: 235 ms
+  contender success / rejected: 1 / 99
+
+[run @ 2026-05-19T17:37:02 — MaxGCPauseMillis=50]
+  GC count delta: 5
+  GC total time delta: 89 ms
+  GC avg pause: 17 ms
+  GC max upper-bound: 89 ms
+  winner reserve duration: 226 ms (락 보유 + heap pressure 포함)
+  contender wait min: 197 ms
+  contender wait p50: 227 ms
+  contender wait p99: 236 ms
+  contender wait max: 236 ms
+  contender success / rejected: 1 / 99
+
+비관적 락 시점 vs CAS 차이:
+- winner reserve duration: 313/257 → 226/226 ms. 양쪽 GC 변형 모두 28~12% 단축.
+  heap pressure 작업 비중이 동일한데 락 보유자 자체가 winner thread (테스트가
+  직접 FOR UPDATE 호출) 이므로 winner 측 절대 시간 변화는 G1 자체의 jitter 와
+  JIT warm-up 효과. CAS 가 winner duration 을 직접 줄이지는 않음.
+- contender p99: 411/330 → 235/236 ms. 약 43%/29% 단축.
+  비관적 락 시점에는 contender 100개가 winner 의 FOR UPDATE 락 queue 에서 대기 →
+  winner COMMIT 시점에 한꺼번에 풀리며 PG 가 순차 진행. CAS contender 는 winner
+  의 UPDATE 윈도우(짧음)만 대기, 즉시 CAS miss 로 떨어져 application 단에서
+  거절. 락 queue 직렬화가 사라지므로 GC pause 와 무관하게 contender 응답이 짧음.
+- contender max: 411/330 → 235/236 ms 와 동일 수치. tail latency 가 cluster
+  되어 winner queue 의 단계적 wake-up jitter 가 제거됨.
+- GC pause 튜닝 효과: 비관적 락 시점은 pause=500 → 50 일 때 p99 411 → 330 (-20%)
+  의 의미 있는 차이. CAS 시점은 235 → 236 으로 차이 없음.
+  → GC 튜닝의 영향이 락 전략 변경으로 흡수됨. CAS contender 는 락 wait 가 아니라
+    application-level fail-fast 경로라서 winner JVM GC 상태와 결합도가 낮음.
+
+핵심 통찰: CAS 가 가장 크게 영향 준 시나리오. 비관적 락에서 "winner GC pause =
+대기자 timeout 연장" 등식이 CAS contender 경로에서는 깨짐 (contender 는 lock queue
+에서 안 기다리고 즉시 CAS miss 받음). DDIA §8 fencing token 의 단일 노드 변형
+문제가 CAS 로 완화됨.
+=======================================

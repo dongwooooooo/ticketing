@@ -17,3 +17,30 @@ completed within timeout: true
 
 차이: 스레드 15.4배 감소 (1016 → 66), 메모리 2.3배 차이 (200 MB → 86 MB).
 =======================================
+
+================================================
+RE-MEASUREMENT (CAS 적용 후, 2026-05-19, commit 2035d6b)
+================================================
+[default executor = SimpleAsyncTaskExecutor]
+peak thread count: 1016 (baseline 15)
+peak heap MB: 202 (baseline 50 MB)
+wall time ms: 991
+PAID 전이: 1000/1000
+errors: 0
+completed within timeout: true
+
+[ThreadPoolTaskExecutor core=20 max=50 queue=500]
+peak thread count: 66 (baseline 15)
+peak heap MB: 86 (baseline 50 MB)
+wall time ms: 492
+PAID 전이: 563/1000
+errors: 437
+completed within timeout: true
+
+비관적 락 시점 vs CAS 차이:
+- peak thread 동일 (1016/66) — 콜백 큐 동시 처리 worker 수가 executor 설정에 의해 결정되므로 reserve() 락 전략과 무관.
+- peak heap 동일 (200~202 MB, 86 MB) — heap 점유 대부분이 worker stack + callback payload. CAS 영향 미미.
+- wall time SimpleAsync 899 → 991ms (+10%), ThreadPool 369 → 492ms (+33%). CAS UPDATE 가 매번 1 row write lock 을 잡고 COMMIT 까지 보유하므로 ThreadPool worker 20개 동시 처리 시 약간의 직렬화 잔재.
+- PAID 전이 SimpleAsync 1000/1000 동일, ThreadPool 550 → 563 (+13건). errors 450 → 437 (-13건). CAS 가 reservation INSERT 직전에 짧은 hold 윈도우를 만들어 queue 채워진 콜백이 약간 더 통과.
+- 결론: 콜백 burst 영향 거의 동일. 부하 흡수는 ThreadPool 설정이 결정 — reserve() lock 전략은 종속변수.
+=======================================
