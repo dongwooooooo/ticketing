@@ -1,4 +1,7 @@
-# DD-1 좌석 동시 선점 — Pessimistic Lock + partial UNIQUE index
+# DD-1 좌석 동시 선점 — Pessimistic Lock + partial UNIQUE index (v1, 2026-05-18)
+
+> **상태**: SUPERSEDED — 2026-05-19 CAS atomic UPDATE 로 전환. 본 문서는 v1 결정의 기록으로 보존.
+> 후속 결정: [dd1-seat-lock-cas-switch.md](dd1-seat-lock-cas-switch.md)
 
 5-block 의사결정 일지: 직관 → 비판 → 대안 → 기각 → 채택+측정 → 한계
 

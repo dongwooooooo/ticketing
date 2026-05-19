@@ -8,13 +8,16 @@ Stage 2의 3가지 핵심 race를 각각 패턴, 측정 시나리오, 가설, �
 
 같은 좌석 1번에 동시 100개의 예매 요청이 들어왔을 때 정확히 1건만 HELD가 되어야 한다.
 
-### 채택 패턴
+### 채택 패턴 (2026-05-19 갱신)
 
 **2-line defense**:
-1. `@Lock(PESSIMISTIC_WRITE)`로 seat row를 트랜잭션 진입 시 lock
-2. `reservation` partial UNIQUE index (`status IN ('HELD','PAID')`)가 DB 레벨 2차 방어
+1. CAS atomic UPDATE — `UPDATE seat SET status='HELD' WHERE id=? AND status='AVAILABLE'` (affected rows 0/1)
+2. `reservation` partial UNIQUE index (`status IN ('HELD','PAID')`) — DB 레벨 2차 방어
 
-락만으로 충분하지 않은가? → DB constraint를 둘 다 두는 이유는 [decision-journal/dd1-seat-lock.md](decision-journal/dd1-seat-lock.md) §3 참조 (앱 버그/스킵, 다중 인스턴스 미래 대비).
+v1 (2026-05-18) 는 1차로 `@Lock(PESSIMISTIC_WRITE)` 사용. 2026-05-19 seat-lock-alternatives 측정 결과 CAS 우위 (B-1 p99 -67%, throughput +183%, deadlock -39%) 로 전환.
+
+전환 5블록: [decision-journal/dd1-seat-lock-cas-switch.md](decision-journal/dd1-seat-lock-cas-switch.md)
+v1 원본: [decision-journal/dd1-seat-lock.md](decision-journal/dd1-seat-lock.md)
 
 ### 측정 시나리오
 
@@ -38,8 +41,8 @@ Stage 2의 3가지 핵심 race를 각각 패턴, 측정 시나리오, 가설, �
 
 ### 추가 검증 (선택)
 
-- Pessimistic Lock 제거 후 partial UNIQUE만 → 여전히 1건만 통과하는가? (defense-in-depth 검증)
-- Pessimistic Lock만 + UNIQUE 제거 → 1건만 통과하는가?
+- CAS 제거 후 partial UNIQUE만 → 여전히 1건만 통과하는가? (defense-in-depth 검증)
+- CAS만 + UNIQUE 제거 → 1건만 통과하는가? (CAS 단독 적합성 검증)
 - 둘 다 제거 (basic 동작) → oversell 재현되는가? (회귀 baseline)
 
 ## DD-2 결제 idempotency (SCN-U-05)

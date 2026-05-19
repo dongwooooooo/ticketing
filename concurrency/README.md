@@ -6,9 +6,11 @@ Stage 1(`basic/`)이 의도적으로 남겨둔 race condition 3종을 해결한�
 
 | 영역 | Stage 1 (basic) | Stage 2 (concurrency) |
 |---|---|---|
-| 좌석 선점 race | naive `findById` → save (oversell) | `@Lock(PESSIMISTIC_WRITE)` + partial UNIQUE index |
+| 좌석 선점 race | naive `findById` → save (oversell) | CAS `UPDATE seat SET status='HELD' WHERE id=? AND status='AVAILABLE'` + partial UNIQUE index |
 | 결제 idempotency | DB에 그대로 N건 INSERT | `idempotency_key` UNIQUE + `DataIntegrityViolationException` catch |
 | 만료-callback race | `setStatus`로 lost update | atomic `UPDATE ... WHERE status=:expected` |
+
+> **2026-05-19 변경**: 좌석 선점 1차 방어선을 Pessimistic Lock 에서 CAS (Compare-And-Swap) 로 교체. seat-lock-alternatives 비교 측정 결과 채택. 상세 근거: [dd1-seat-lock-cas-switch.md](docs/decision-journal/dd1-seat-lock-cas-switch.md)
 
 상세 1:1 diff: [docs/changes-from-basic.md](docs/changes-from-basic.md)
 ERD + 플로우 + 상태 전이 + 4-stage 진화: [docs/domain.md](docs/domain.md)
@@ -17,7 +19,7 @@ ERD + 플로우 + 상태 전이 + 4-stage 진화: [docs/domain.md](docs/domain.m
 
 | # | 주제 | 패턴 | 의사결정 |
 |---|---|---|---|
-| 1 | 좌석 동시 선점 | Pessimistic Lock + partial UNIQUE (2-line defense) | [dd1-seat-lock.md](docs/decision-journal/dd1-seat-lock.md) |
+| 1 | 좌석 동시 선점 | CAS atomic UPDATE + partial UNIQUE (2-line defense) | [dd1-seat-lock.md](docs/decision-journal/dd1-seat-lock.md) · [dd1-seat-lock-cas-switch.md](docs/decision-journal/dd1-seat-lock-cas-switch.md) |
 | 2 | 결제 idempotency | UNIQUE constraint + INSERT 실패 catch | [dd2-idempotency.md](docs/decision-journal/dd2-idempotency.md) |
 | 3 | 만료-callback race | atomic UPDATE WHERE status=expected | [dd3-expiry-race.md](docs/decision-journal/dd3-expiry-race.md) |
 
@@ -60,10 +62,11 @@ cd /Users/idong-u/d/ticketing && ./gradlew :concurrency:bootRun
 
 ## 락 회피 정책
 
-Pessimistic Lock을 명시적으로 도입하되 최소 범위로:
+좌석 선점은 CAS atomic UPDATE 로 lock-free 처리. 비매진/비경합 경로(예: callback 의 SOLD 전이, scheduler 의 EXPIRED 후 좌석 복귀)는 Pessimistic Lock 잔존하지만, 본질적으로 동시 진입자 1명이라 비용 미발생.
 
 - 트랜잭션 안에 외부 호출 금지 (callback은 별도 트랜잭션)
-- `findByIdForUpdate`는 seat 단일 row만, reservation은 락 없이 atomic UPDATE
+- `casHold` / `casRelease` — reserve() 의 hot 경합 경로. row write lock 보유 시간 ~1ms
+- `findByIdForUpdate` — reserve() 외 경로 전용 (PaymentService.handleCallback, ExpiryService, ReservationService.cancel). defense-in-depth 차원에서 유지
 - Idempotency는 락 대신 UNIQUE constraint (lock-free)
 
 상세 anti-pattern 검토: `resume/ahnlab-ai-service-portfolio/12-lock-antipatterns-and-decision-frame.md`

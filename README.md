@@ -9,8 +9,8 @@
 | # | 모듈 | 푸는 문제 | 이전 스테이지 한계 | 측정 결과 |
 |---|---|---|---|---|
 | 1 | [`basic/`](basic/) | 단일 서버 happy path | (시작) | `SeatRaceReproTest`: 좌석 1개에 10명 HELD (oversell=10) |
-| 2 | [`concurrency/`](concurrency/) | 좌석 oversell, 결제 멱등성, 만료-결제 race | Stage 1 naive race 발생 | race 차단 ✅ — `SeatLockConcurrencyTest` / `PaymentIdempotencyConcurrencyTest` / `ExpiryPaymentRaceTest` |
-| 3 | [`queue/`](queue/) | 50만 동시 접속 대기열, 백엔드 보호 | Stage 2 hot seat p99=586ms, deadlock 98% 가능성 | gate 통과 ✅ — `HappyPathIntegrationTest` 4 PASS, `QueueLoadTest` enqueue 67K ops/s p99=0.059ms |
+| 2 | [`concurrency/`](concurrency/) | 좌석 oversell (CAS + partial UNIQUE), 결제 멱등성, 만료-결제 race | Stage 1 naive race 발생 | race 차단 ✅ — `SeatLockConcurrencyTest` / `PaymentIdempotencyConcurrencyTest` / `ExpiryPaymentRaceTest`. 2026-05-19 Pessimistic Lock → CAS 전환 (B-1 p99 -67%, throughput +183%) |
+| 3 | [`queue/`](queue/) | 50만 동시 접속 대기열, 백엔드 보호 | Stage 2 hot seat 측정 시점 Pessimistic p99=586ms (CAS 전환 후 ~190ms 추정), deadlock 위험 | gate 통과 ✅ — `HappyPathIntegrationTest` 4 PASS, `QueueLoadTest` enqueue 67K ops/s p99=0.059ms |
 | 4 | `distributed/` | 다중 인스턴스 분산 락, ShedLock, fencing | Stage 3 단일 JVM 큐 한계 + DB failover 회색지대 (commit 후 ACK 전) | (계획) |
 
 진행 시점에 해당 모듈 디렉토리 생성 + `settings.gradle`에서 include 해제.

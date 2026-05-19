@@ -21,20 +21,37 @@ CREATE UNIQUE INDEX uq_reservation_seat_active
 
 partial unique index를 선택한 이유: `status IN ('HELD','PAID')` 조건이 무한히 누적되는 EXPIRED/CANCELLED row와 unique 경합하지 않도록.
 
-## 2. SeatRepository — Pessimistic Lock 도입
+## 2. SeatRepository — CAS atomic UPDATE 도입 (2026-05-19 갱신)
 
 **파일**: `concurrency/src/main/java/com/dongwoo/ticketing/repository/SeatRepository.java`
 
 ```java
-@Lock(LockModeType.PESSIMISTIC_WRITE)
-@Query("SELECT s FROM Seat s WHERE s.id = :id")
-Optional<Seat> findByIdForUpdate(@Param("id") Long id);
+@Modifying
+@Query(value = "UPDATE seat SET status='HELD', updated_at=now() " +
+               "WHERE id=:id AND status='AVAILABLE'",
+       nativeQuery = true)
+int casHold(@Param("id") Long id);
+
+@Modifying
+@Query(value = "UPDATE seat SET status='AVAILABLE', updated_at=now() " +
+               "WHERE id=:id AND status='HELD'",
+       nativeQuery = true)
+int casRelease(@Param("id") Long id);
 ```
 
 - `basic/`은 `findById`만 호출 → memory check → save (race 발생)
-- `concurrency/`는 트랜잭션 시작 시 row lock 획득 → 같은 좌석 노리는 다른 트랜잭션은 대기
+- `concurrency/` v1 (~2026-05-18): Pessimistic Lock 도입. `@Lock(PESSIMISTIC_WRITE)` 로 SELECT FOR UPDATE
+- `concurrency/` v2 (2026-05-19): **CAS atomic UPDATE 로 교체**. lock-free, row write lock 보유 시간 ~1ms
 
-Pessimistic을 선택한 이유 + 락 회피 시도 기록: [decision-journal/dd1-seat-lock.md](decision-journal/dd1-seat-lock.md)
+v1 → v2 전환 근거 (seat-lock-alternatives 비교 측정):
+- B-1 (단발 1000) p99 -67%, throughput +183%
+- C-2 (데드락 시나리오) deadlock 발생 -39%
+- lock-free → deadlock·lock_timeout 발화 자체가 없음
+
+`findByIdForUpdate` 는 PaymentService.handleCallback / ExpiryService / cancel 의 단일 owner 경로 전용으로 잔존. 본질적으로 동시 진입자 1명이라 잠금 비용 무의미하지만 defense-in-depth 유지.
+
+Pessimistic → CAS 전환 5블록 의사결정: [decision-journal/dd1-seat-lock-cas-switch.md](decision-journal/dd1-seat-lock-cas-switch.md)
+v1 (Pessimistic 채택) 의사결정 원본: [decision-journal/dd1-seat-lock.md](decision-journal/dd1-seat-lock.md)
 
 ## 3. ReservationRepository — atomic UPDATE 2종 추가
 
@@ -129,18 +146,28 @@ public void expireOverdueReservations() {
 
 다중 인스턴스 중복 실행은 Stage 4 (ShedLock)에서.
 
-## 7. ReservationService — DataIntegrityViolation fallback
+## 7. ReservationService.reserve() — CAS + UNIQUE 2-line defense
 
 ```java
+int updated = seatRepository.casHold(seatId);
+if (updated == 0) {
+    soldOutCache.markSoldOut(seatId);
+    throw new SeatNotAvailableException("seat " + seatId + " not AVAILABLE (CAS miss)");
+}
+soldOutCache.markSoldOut(seatId);
+
 try {
-    seatRepository.save(seat);
-    return reservationRepository.save(Reservation.held(seatId, userId, expiresAt));
+    Reservation reservation = Reservation.create(seatId, userId, HOLD_DURATION);
+    return reservationRepository.save(reservation);
 } catch (DataIntegrityViolationException e) {
-    throw new IllegalStateException("seat already reserved", e);
+    seatRepository.casRelease(seatId);
+    throw new SeatNotAvailableException("seat " + seatId + " concurrent reservation rejected");
 }
 ```
 
-partial UNIQUE index가 race를 거부했을 때 (Pessimistic Lock이 빠진 케이스에 대비) — defense in depth.
+- 1차 (CAS): atomic UPDATE 의 affected rows 로 winner/loser 판별. lock-free.
+- 2차 (partial UNIQUE): reservation INSERT 시 race 가 CAS 와 UNIQUE 사이 좁은 window 통과해도 DB 가 거부.
+- UNIQUE 위반 catch 시 `casRelease` 로 seat status 보상 (HELD → AVAILABLE).
 
 ## 환경 차이
 
