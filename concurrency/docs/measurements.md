@@ -46,6 +46,17 @@ commit 2035d6b (`refactor(concurrency): replace pessimistic lock with CAS in res
 - **콜백 burst 와 DB failover 는 락 전략과 종속도 낮음**. 콜백은 ThreadPool 설정, failover 는 PG 트랜잭션 원자성이 본질.
 - **CAS 의 win: contender 응답 분포가 균일해짐**. #9 에서 p50/p99/max 가 235ms 한 점에 cluster — 비관적 락은 winner COMMIT 시 wake-up jitter 로 235~411ms 분산.
 
+### 운영 정책 권고 — CAS 채택 후 필수 조건
+
+#10 baseline 측정에서 CAS 가 정상 사용자 응답을 악화시킬 수 있음 (+38%). 이를 피하려면:
+
+1. **SoldOutCache fast-path 항상 활성화**. `ticketing.fast-path.enabled=true` 운영 기본값. 비활성화 PR 차단 룰 명문화.
+2. **캐시 워밍업 윈도우 정책**. 매진 직후 fast-path 가 SOLD 상태를 인지하기까지 cache miss 윈도우 존재. 이 구간에서는 CAS baseline (악화) 경로로 빠짐. 매진 이벤트 발생 시 동기 cache 갱신 (write-through) 필요.
+3. **HikariCP pending 모니터링**. `hikaricp_connections_pending` Prometheus 메트릭을 임계 알람으로 등록 — fast-path 캐시 hit ratio 가 떨어지는 순간 감지.
+4. **Stage 4 분산 환경에서는 Redis 분산 캐시로 교체**. application-level Set 은 멀티 인스턴스에서 일관성 깨짐.
+
+핵심: **CAS = fast-path 의존성 패턴**. 둘 중 하나라도 빠지면 정상 사용자 피해.
+
 ## 2026-05-18 비관적 락 시점 측정
 
 raw output 은 각 `concurrency/scenario-{7,9,10,12}-output.txt` 의 상단 블록 참조.
