@@ -3,7 +3,6 @@ package com.dongwoo.ticketing.service;
 import com.dongwoo.ticketing.domain.Reservation;
 import com.dongwoo.ticketing.domain.ReservationStatus;
 import com.dongwoo.ticketing.domain.Seat;
-import com.dongwoo.ticketing.domain.SeatStatus;
 import com.dongwoo.ticketing.repository.ReservationRepository;
 import com.dongwoo.ticketing.repository.SeatRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,18 +17,25 @@ import java.time.Duration;
 /**
  * Stage 2 Deep Dive 1 — 좌석 동시 선점 차단.
  *
- * 채택 안: B (DB Pessimistic Lock)
- *  - SELECT ... FOR UPDATE 로 좌석 row를 잠근다.
- *  - 동시 100건 요청 중 1건만 락 획득, 나머지는 대기 후 status=HELD 보고 실패.
+ * 채택 안: CAS (Compare-And-Swap) atomic UPDATE.
+ *  - UPDATE seat SET status='HELD' WHERE id=? AND status='AVAILABLE'
+ *  - affected rows == 1 → hold 성공, == 0 → race loss (다른 사용자가 이미 hold)
+ *  - row write lock 보유 시간 = UPDATE 실행 시간 (~1ms). 비관적 락 대비 락 보유 시간 크게 감소.
  *
- * 함정 (락 안티패턴) — LockCascadeReproTest에서 의도적 재현:
- *  - 트랜잭션 안에 외부 호출 절대 금지 (HikariCP pool 고갈)
- *  - 락 보유 시간 최소화 (READ_COMMITTED + FOR UPDATE는 MVCC와 별개 메커니즘이라 그 자체로 cascade)
- *  - 좌석 단위 락이라 hot 좌석에만 직렬화 영향 (sharding by seat_id)
+ * 비관적 락에서 전환한 근거 (seat-lock-alternatives 비교 측정):
+ *  - B-1 (단발 1000) p99 -67%, throughput +183%
+ *  - C-2 (데드락 시나리오) deadlock 발생 -39%
+ *  - lock-free → deadlock·lock_timeout 발화 자체가 없음
  *
- * 추가 차단선 — V3 마이그레이션의 partial UNIQUE index:
- *   CREATE UNIQUE INDEX uq_reservation_seat_active ON reservation (seat_id) WHERE status IN ('HELD','PAID')
- *   락 우회 케이스(JPA flush 타이밍 함정 등)에서도 DB 레벨에서 1건 보장.
+ * 2-line defense (변경 없이 유지):
+ *  - 1차: 위 atomic UPDATE
+ *  - 2차: V3 partial UNIQUE index — `uq_reservation_seat_active (seat_id) WHERE status IN ('HELD','PAID')`
+ *    reservation INSERT 시 race 가 좁은 window 통과해도 DB 레벨에서 1건 보장.
+ *
+ * 함정 / 주의:
+ *  - CAS UPDATE 는 JPA flush cycle 우회 (native SQL) — 영속성 컨텍스트의 Seat entity 와 분리됨.
+ *    reserve() 가 Seat 을 반환하지 않으므로 stale entity 노출 위험 없음.
+ *  - reservation INSERT 의 UNIQUE 위반 fallback 시 seat status 를 AVAILABLE 로 보상 (casRelease).
  */
 @Service
 @RequiredArgsConstructor
@@ -57,24 +63,22 @@ public class ReservationService {
         }
 
         metrics.incDbHit();
-        Seat seat = seatRepository.findByIdForUpdate(seatId)
-                .orElseThrow(() -> new IllegalArgumentException("seat not found: " + seatId));
 
-        if (seat.getStatus() != SeatStatus.AVAILABLE) {
-            // DB 진입 후 발견 — fast path가 빠뜨린 케이스(이제 막 매진 전이)도 마킹
+        // 1차 CAS: atomic UPDATE AVAILABLE → HELD. lock-free.
+        int updated = seatRepository.casHold(seatId);
+        if (updated == 0) {
+            // race loss — 좌석이 AVAILABLE 이 아님 (이미 HELD/SOLD 이거나 존재하지 않음)
             soldOutCache.markSoldOut(seatId);
-            throw new SeatNotAvailableException("seat " + seatId + " status=" + seat.getStatus());
+            throw new SeatNotAvailableException("seat " + seatId + " not AVAILABLE (CAS miss)");
         }
-
-        seat.hold();
-        seatRepository.save(seat);
         soldOutCache.markSoldOut(seatId);
 
         try {
             Reservation reservation = Reservation.create(seatId, userId, HOLD_DURATION);
             return reservationRepository.save(reservation);
         } catch (DataIntegrityViolationException e) {
-            // partial UNIQUE index 위반 — 락 우회 케이스 fallback
+            // 2차 partial UNIQUE 위반 — 최후 방어선. seat status 복구 후 거절.
+            seatRepository.casRelease(seatId);
             throw new SeatNotAvailableException("seat " + seatId + " concurrent reservation rejected");
         }
     }
