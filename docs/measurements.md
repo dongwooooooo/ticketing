@@ -98,3 +98,33 @@ final reservation status: EXPIRED
 - ExpiryPaymentRaceTest는 1회 실행 결과만 기록. 100회 반복 + 분포 측정은 추가 작업 필요.
 - 부하 측정 (k6 sustained 200 TPS / peak 5000 TPS)은 Stage 3 진입 시.
 - Lock cascade anti-pattern §1.5 의도적 재현 (LockCascadeReproTest)은 미수행 (concurrency/docs/known-issues.md I-011).
+
+## Stage 4 (distributed) — 분산 구성 측정
+
+측정 시점: 2026-05-24
+
+### 정합성 테스트
+
+| 테스트 | 검증 대상 | 결과 |
+|---|---|---|
+| DistributedSeatLockTest | 같은 좌석 100건 동시 진입 → Redis SETNX 로 1명만 통과 | acquired=1/100, fence 단조 증가 (1→2→3) PASS |
+| FencingTokenTest | A 의 stale holder (fence=1) 가 B (fence=2) 의 DB UPDATE 를 덮어쓰지 못함 | casHold(stale=1) affected=0 PASS |
+| DistributedQueueTest | Redis ZSET 큐 / Lua atomic admit / 인스턴스 간 state 공유 | 5/5 cases PASS, 100 토큰 동시 admit 시 중복 0건 |
+| OutboxReconciliationTest | FOR UPDATE SKIP LOCKED 폴링 / 실패 attempts++ → 10회 시 DEAD | PASS |
+
+총 11 tests, 0 failures (testcontainers postgres:16 + redis:7-alpine).
+
+### 부하 측정 (stage4-capacity)
+
+[`stage4-capacity/`](https://github.com/dongwooooooo/ticketing-observability/tree/main/stage4-capacity)
+
+- 구성: backend × 2 (각 2cpu/2g) + Nginx LB + Redis (1cpu) + PostgreSQL (2cpu) — Mac 10cpu 한계 안
+- 부하 패턴: Stage 3 와 동일 (100 → 5000 RPS ramp)
+- 산출물: `results/stage4-dual.summary.json` (k6 metric summary)
+- 검증: 인스턴스 1대 down 시 LB 가 자동 인계, 사용자 흐름 유지
+
+### Mac 한계 안 측정 의의 / 한계
+
+- 의의: backend × 2 가 단일 인스턴스 대비 throughput / 가용성 측면에서 의미 있는 차이를 보이는지 정성적 확인.
+- 한계: 인스턴스당 자원이 Stage 3 단일(4cpu) 보다 작은 2cpu — 절대 throughput 비교 의미 제한. **수평 확장 효과** 만 확인.
+- 한계: Redis 단일 인스턴스 — sentinel/cluster 미적용. Redis 다운 시 큐/락 전체 정지.

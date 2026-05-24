@@ -1,0 +1,67 @@
+spring:
+  application:
+    name: ticketing-distributed
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/ticketing}
+    username: ${SPRING_DATASOURCE_USERNAME:ticketing}
+    password: ${SPRING_DATASOURCE_PASSWORD:ticketing}
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 3000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc.batch_size: 50
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      timeout: 2000
+
+server:
+  port: ${SERVER_PORT:28083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  metrics:
+    tags:
+      stage: distributed
+      instance: ${INSTANCE_ID:default}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+
+logging:
+  level:
+    com.dongwoo.ticketing: info
+    org.hibernate.SQL: info
+
+ticketing:
+  pgmock:
+    latency-mean-ms: 120
+    latency-jitter-ms: 60
+    # callback URL은 LB 거치도록 — 인스턴스 N대 어느 쪽으로 가도 outbox 가 처리
+    callback-url: ${PG_CALLBACK_URL:http://localhost:28083/payments/callback}
+  instance-id: ${INSTANCE_ID:default}
+
+queue:
+  admit-rate-per-tick: 10
+  admitted-ttl-ms: 300000
+
+distributed:
+  seat-lock:
+    ttl-seconds: 5
+  outbox:
+    batch-size: 50
+    poll-interval-ms: 500

@@ -178,8 +178,8 @@
 - 트리거: Spring 인스턴스 N개에서 같은 시각 `@Scheduled` 트리거
 - 기대: ShedLock으로 한 인스턴스만 실행
 - 위반 영향: 같은 reservation을 두 번 EXPIRED 처리 시도 → 두 번째는 affected rows == 0이라 무시되나 audit log 오염 + DB 부하
-- 검증: `MultiInstanceShedLockTest` (D)
-- Stage 적용: D
+- 검증: `ExpiryService.@SchedulerLock("seat-expiry")` 코드 + ShedLock JDBC provider (V4 마이그레이션의 shedlock 테이블). 실측은 `stage4-capacity` 부하 + app1 stop failover 시나리오로 갈음.
+- Stage 적용: D ✅ (구현 완료)
 
 ### 2.5 F — Failure 시나리오 (Stage 4 영역)
 
@@ -211,12 +211,12 @@
 - 검증: `RedisFailoverTest` (D)
 - Stage 적용: D
 
-#### SCN-F-05 네트워크 분할 (split-brain)
-- 트리거: 다중 인스턴스 사이 네트워크 끊김
+#### SCN-F-05 네트워크 분할 (split-brain) / GC pause stale holder
+- 트리거: 다중 인스턴스 사이 네트워크 끊김, 또는 락 보유 인스턴스 GC pause
 - 기대: fencing token으로 zombie lock 차단 (Kleppmann)
 - 위반 영향: 같은 좌석을 두 노드에서 다른 사용자에게 판매
-- 검증: 본 Lab 범위 밖. 합의 알고리즘 검증 비용 큼
-- Stage 적용: D (가설만)
+- 검증: `FencingTokenTest` (D) — A 가 락+fence=1, Redis TTL 만료 시뮬, B 가 fence=2 받고 casHold 성공, A 깨어나 casHold(1) → affected=0 차단 PASS
+- Stage 적용: D ✅ (fencing token + lock_token 컬럼 구현 완료)
 
 ## 3. Stage별 책임 매트릭스
 

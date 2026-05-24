@@ -11,7 +11,7 @@
 | 1 | [`basic/`](basic/) | 단일 서버 happy path | (시작) | `SeatRaceReproTest`: 좌석 1개에 10명 HELD (oversell=10), p99 33ms |
 | 2 | [`concurrency/`](concurrency/) | 좌석 oversell (CAS + partial UNIQUE), 결제 멱등성, 만료-결제 race | Stage 1 naive race 발생 | race 차단 ✅ — `SeatLockConcurrencyTest` / `PaymentIdempotencyConcurrencyTest` / `ExpiryPaymentRaceTest`. 2026-05-19 Pessimistic Lock → CAS 전환 (B-1 p99 586 → 192ms / throughput 1490 → 4219 ops/s) |
 | 3 | [`queue/`](queue/) | 50만 동시 접속 대기열, 백엔드 보호 | Stage 2 단일 노드 5000 req/s 부하 시 75.9% 5xx 시스템 거절 (Mac 측정) + 사양 비례 향상 깨짐 (a-3→a-4 +1.9%) | gate 통과 ✅ — `HappyPathIntegrationTest` 4 PASS, `QueueLoadTest` enqueue 67K ops/s p99=0.059ms. 13 사양 측정 admit_timeout 0/13 |
-| 4 | `distributed/` | 다중 인스턴스 분산 락, ShedLock, fencing | Stage 3 단일 JVM 큐 한계 + DB failover 회색지대 (commit 후 ACK 전) | (계획) |
+| 4 | [`distributed/`](distributed/) | 다중 인스턴스 분산 락, ShedLock, fencing token, Outbox | Stage 3 단일 JVM 큐 한계 + DB failover 회색지대 (commit 후 ACK 전) | 구현 + 측정 완료 — `DistributedSeatLockTest` / `FencingTokenTest` / `DistributedQueueTest` / `OutboxReconciliationTest` 11 tests PASS. `stage4-capacity` backend × 2 + Nginx LB + Redis 측정 (Mac 10cpu 한계) |
 
 진행 시점에 해당 모듈 디렉토리 생성 + `settings.gradle`에서 include 해제.
 
@@ -30,6 +30,7 @@
 | k6 + Grafana 3 stage 시각화 | 3 | [`ticketing-observability`](https://github.com/dongwooooooo/ticketing-observability) |
 | **Stage 2 수직 확장 측정** | 13 (A 5 + B 4 + C 4) | [`stage2-capacity`](https://github.com/dongwooooooo/ticketing-observability/tree/main/stage2-capacity) |
 | **Stage 3 큐 도입 효과 측정** | 13 (동일 매트릭스) | [`stage3-capacity`](https://github.com/dongwooooooo/ticketing-observability/tree/main/stage3-capacity) |
+| **Stage 4 backend × 2 분산 측정** | dual / single / failover | [`stage4-capacity`](https://github.com/dongwooooooo/ticketing-observability/tree/main/stage4-capacity) |
 
 정합성 22 PASS / 4 OBSERVED / 2 미측정. 부하 측정 = Mac M2 Pro 16GB / Docker 10cpu 한계 안에서 추세 비교 (절대 수치는 클라우드 검증 필요).
 
