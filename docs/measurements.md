@@ -120,8 +120,24 @@ final reservation status: EXPIRED
 
 - 구성: backend × 2 (각 2cpu/2g) + Nginx LB + Redis (1cpu) + PostgreSQL (2cpu) — Mac 10cpu 한계 안
 - 부하 패턴: Stage 3 와 동일 (100 → 5000 RPS ramp)
-- 산출물: `results/stage4-dual.summary.json` (k6 metric summary)
-- 검증: 인스턴스 1대 down 시 LB 가 자동 인계, 사용자 흐름 유지
+- 산출물: `results/stage4-dual.summary.json` (k6 metric summary), `results/RESULTS.md` (정성 분석)
+
+**실측 값** (2026-05-24):
+- http_reqs total: 337,941 / 1,875.52 req/s
+- iterations: 101,821 / 565 iters/s (1 iter = token + admit + reserve 3-step)
+- token_issued: 72,798 → admitted: 72,798 (admit gate 100% 통과)
+- p95 reserve_latency: 2.3 s / p99 total_latency: ~30 s (한계 도달 후 큐 대기 누적)
+- http_req_failed: 38.43% (3500~5000 RPS 한계 도달 후 timeout)
+
+**합격 사항**:
+- backend × 2 인스턴스가 round-robin 으로 부하 분산
+- Redis ZSET 큐가 cross-instance 일관 동작 (admit 상태 모든 인스턴스 공유)
+- admit gate ShedLock 으로 중복 admit 0건
+
+**한계**:
+- backend 인스턴스당 2cpu 라 Stage 3 단일(4cpu) 절대 비교 의미 제한 — 수평 확장 효과만 정성 확인
+- k6 호스트 ephemeral port 고갈 (마지막 stage)
+- Failover / Single 모드 측정은 미실행 (시간 부족)
 
 ### Mac 한계 안 측정 의의 / 한계
 
