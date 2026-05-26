@@ -1,94 +1,118 @@
-# ticketing
+# Ticketing Concurrency Lab
 
-콘서트 티케팅 시스템 — 단일 서버부터 분산 환경까지 점진 구현 시리즈.
+부하테스트 기반 티켓팅 동시성 개선 프로젝트입니다.
 
-각 스테이지는 이전 스테이지에서 발견한 문제를 하나씩 해결하는 **독립 Gradle 모듈**로 같은 레포 안에 둔다.
+티켓팅 예매 오픈 상황을 부하테스트로 재현하고, 측정 결과에 따라 좌석 예약 방식, 대기열, Redis 기반 멀티 인스턴스 구조로 고도화했습니다.
 
-## 스테이지
+- 기간: 2026.04 ~ 2026.05
+- Notion: [Ticketing Concurrency Lab](https://www.notion.so/Ticketing-Concurrency-Lab-36373344235881fdb466f9b0636095df)
+- 상세 근거: [docs/evidence/README.md](docs/evidence/README.md)
+- 기술 스택: Java, Spring Boot, PostgreSQL, Redis, JPA, Flyway, Testcontainers, k6, Prometheus, Grafana
+- 담당 범위: 좌석 예약 방식 비교, 대기열 구현, Redis 기반 분산 구성, 결제 상태 전이, 부하테스트
+- 검증 범위: 실제 PG/카드사 호출은 제외하고 Mock 결제 게이트웨이와 로컬 부하테스트 결과를 사용했습니다.
 
-| # | 모듈 | 푸는 문제 | 이전 스테이지 한계 | 측정 결과 |
-|---|---|---|---|---|
-| 1 | [`basic/`](basic/) | 단일 서버 happy path | (시작) | `SeatRaceReproTest`: 좌석 1개에 10명 HELD (oversell=10), p99 33ms |
-| 2 | [`concurrency/`](concurrency/) | 좌석 oversell (CAS + partial UNIQUE), 결제 멱등성, 만료-결제 race | Stage 1 naive race 발생 | race 차단 ✅ — `SeatLockConcurrencyTest` / `PaymentIdempotencyConcurrencyTest` / `ExpiryPaymentRaceTest`. 2026-05-19 Pessimistic Lock → CAS 전환 (B-1 p99 586 → 192ms / throughput 1490 → 4219 ops/s) |
-| 3 | [`queue/`](queue/) | 50만 동시 접속 대기열, 백엔드 보호 | Stage 2 단일 노드 5000 req/s 부하 시 75.9% 5xx 시스템 거절 (Mac 측정) + 사양 비례 향상 깨짐 (a-3→a-4 +1.9%) | gate 통과 ✅ — `HappyPathIntegrationTest` 4 PASS, `QueueLoadTest` enqueue 67K ops/s p99=0.059ms. 13 사양 측정 admit_timeout 0/13 |
-| 4 | [`distributed/`](distributed/) | 다중 인스턴스 분산 락, ShedLock, fencing token, Outbox | Stage 3 단일 JVM 큐 한계 + DB failover 회색지대 (commit 후 ACK 전) | 구현 + 측정 완료 — `DistributedSeatLockTest` / `FencingTokenTest` / `DistributedQueueTest` / `OutboxReconciliationTest` 11 tests PASS. `stage4-capacity` backend × 2 + Nginx LB + Redis 측정 (Mac 10cpu 한계) |
+## 최종 아키텍처
 
-진행 시점에 해당 모듈 디렉토리 생성 + `settings.gradle`에서 include 해제.
+![Ticketing Concurrency Lab 최종 아키텍처](docs/assets/ticketing-final-architecture.png)
 
-## 측정 시나리오 총괄
-
-정합성 시나리오 28종 (race / 운영 위험 / 결제 도메인 / 시각화) + 부하 측정 26종 (Stage 2/3 각 13 사양 매트릭스).
-
-| 분류 | 시나리오 수 | 측정 위치 |
-|---|---|---|
-| 좌석 락 대안 비교 (alt-A~F + Z 채택) | 7 | [`seat-lock-alternatives`](https://github.com/dongwooooooo/seat-lock-alternatives) |
-| CAS 정합성 (Hot seat / Distributed / Pool exhaustion) | 3 | [`stress-cas`](https://github.com/dongwooooooo/seat-lock-alternatives/tree/main/stress-cas) |
-| CAS 운영 위험 (Deadlock / Lock timeout / Starvation / Rollback / Leak / JPA cache) | 6 | [`stress-cas-deep`](https://github.com/dongwooooooo/seat-lock-alternatives/tree/main/stress-cas-deep) |
-| 대기열 대안 비교 (Redis ZSET / in-process / PG SKIP LOCKED) | 3 | [`queue-alternatives`](https://github.com/dongwooooooo/queue-alternatives) |
-| 좌석 예매 운영 위험 (GC pause / sold-out 봇) | 2 | [`concurrency/scenario-{9,10}-*.txt`](concurrency/) |
-| 결제 도메인 위험 (멱등성 / 만료-콜백 race / DB 장애 / 콜백 burst) | 4 | [`concurrency/`](concurrency/) (PaymentIdempotency / ExpiryPaymentRace / DbFailover / PaymentCallbackBurst) |
-| k6 + Grafana 3 stage 시각화 | 3 | [`ticketing-observability`](https://github.com/dongwooooooo/ticketing-observability) |
-| **Stage 2 수직 확장 측정** | 13 (A 5 + B 4 + C 4) | [`stage2-capacity`](https://github.com/dongwooooooo/ticketing-observability/tree/main/stage2-capacity) |
-| **Stage 3 큐 도입 효과 측정** | 13 (동일 매트릭스) | [`stage3-capacity`](https://github.com/dongwooooooo/ticketing-observability/tree/main/stage3-capacity) |
-| **Stage 4 backend × 2 분산 측정** | dual / single / failover | [`stage4-capacity`](https://github.com/dongwooooooo/ticketing-observability/tree/main/stage4-capacity) |
-
-정합성 22 PASS / 4 OBSERVED / 2 미측정. 부하 측정 = Mac M2 Pro 16GB / Docker 10cpu 한계 안에서 추세 비교 (절대 수치는 클라우드 검증 필요).
-
-상세 narrative + 사용자 행동 4요소 형식은 **[Notion Bitly Ticketing Concurrency Lab](https://www.notion.so/36373344235881fdb466f9b0636095df)** 메인 페이지 + Stage 1/2/3 + 결제 처리 자식 페이지에 분산 정리.
-
-Stage 3 진입 실측 근거: [`docs/stage3-entry-rationale.md`](docs/stage3-entry-rationale.md)
-
-## 대전제 (BTS 2026 ARIRANG 기준)
-
-- 좌석 50,000 / 동시 접속 500,000 (10:1 oversubscription)
-- Peak ~5,000 TPS / Sustained 500~1,000 TPS
-- Mexico City 실측: 좌석 150K vs 대기열 1.1M (7.3:1, 37분 매진)
-
-상세 도메인/스코프: [docs/scope.md](docs/scope.md) (작성 예정)
-
-## 기술 스택 (공통)
-
-- Java 25
-- Spring Boot 4.0.0
-- PostgreSQL 16
-- Flyway / JUnit 5 / Testcontainers
-- Stage별 추가: Redis (Stage 2~), Kafka (Stage 3+), ShedLock (Stage 4)
-
-## 빌드
-
-루트 wrapper 공유:
-
-```bash
-# 특정 모듈 빌드
-./gradlew :basic:build
-
-# 특정 모듈 테스트
-./gradlew :basic:test
-
-# 특정 모듈 실행
-./gradlew :basic:bootRun
+```text
+Client
+  -> Nginx
+  -> Ticketing Server x N
+       -> Redis: 대기열, 좌석 락
+       -> PostgreSQL: 좌석, 예약, 결제 상태
 ```
 
-각 모듈은 독립 docker-compose + 독립 PostgreSQL 포트 (basic: 5432, concurrency: 5433, queue: 5434, distributed: 5435) — 충돌 없이 병렬 기동 가능.
+예매 요청은 대기열에서 순서를 받은 뒤, 대기열을 통과한 요청만 좌석 예약 API로 전달합니다. 백엔드 인스턴스를 늘리는 구간에서는 Redis가 대기열과 좌석 단위 락 상태를 공유하고, PostgreSQL이 최종 좌석 예약 정합성을 보장합니다.
 
-## 공통 docs/
+## 아키텍처 설계 기준
 
-- `docs/scenarios.md` — **모든 스테이지 공통 시나리오 카탈로그** (User/Multi/Payment/System/Failure 30+ 시나리오, Stage별 책임 매트릭스, 우선순위 P0~P3, 시니어 비판 검토)
-- `docs/scope.md` — 전체 대전제, 5만 좌석 산정 근거, BTS 실수치 (작성 예정)
-- `docs/system-design.md` — hellointerview 스타일 시스템 디자인 (Stage 2부터 적용)
-- `docs/decision-journal/` — 각 deep dive 본인 사고 기록 5블록
-- [`docs/stage3-entry-rationale.md`](docs/stage3-entry-rationale.md) — Stage 3 진입 실측 근거 (seat-lock-alternatives stress 결과)
+초기 목표는 예매 오픈 상황에서 좌석 예약 정합성과 피크 요청 제어를 검증하는 것이었습니다.
 
-## 관련 레포
+- 기능 요구사항: 동일 좌석의 최종 예약은 1건만 생성되어야 하고, 예매 요청은 대기 순서에 따라 좌석 예약 API로 전달되어야 합니다.
+- 비기능 요구사항: 5K RPS 피크 구간에서 실패 응답과 타임아웃을 줄이고, 좌석 예약 API가 처리 가능한 범위 안에서 요청을 받도록 제어해야 합니다.
+- MVP 제외 범위: 실제 PG/카드사 호출, 운영 환경 장애 전환, Redis/PostgreSQL 클러스터링과 저장소 계층 확장, 실시간 알림과 장기 모니터링은 다루지 않았습니다.
 
-- [`seat-lock-alternatives`](https://github.com/dongwooooooo/seat-lock-alternatives) — 좌석 락 6 대안 + stress-baseline (Pessimistic Lock) + stress-cas (CAS, 채택) + stress-cas-deep 측정
-- [`queue-alternatives`](https://github.com/dongwooooooo/queue-alternatives) — 대기열 3 대안 비교 (Redis ZSET / in-process / PG SKIP LOCKED)
-- [`ticketing-observability`](https://github.com/dongwooooooo/ticketing-observability) — k6 + Prometheus + Grafana 부하 측정 스택 + Stage 1/2/3 Grafana 스크린샷 + **stage2-capacity / stage3-capacity** (13 사양 매트릭스 측정)
+동일 좌석 경합 테스트에서는 최종 예약 1건을 유지하면서 p99와 처리량을 함께 비교했습니다. 이 결과를 기준으로 좌석 예약은 PostgreSQL의 상태 조건 기반 UPDATE와 조건부 유니크 인덱스로 처리했습니다.
 
-## 외부 인용 (Stage 2+ 활용)
+5K RPS 부하에서는 좌석 예약 API가 처리 한도를 넘은 요청을 직접 받으면 실패 응답과 타임아웃이 증가했습니다. 그래서 피크 요청은 대기열에서 순서를 관리하고, 대기열을 통과한 요청만 좌석 예약 API로 전달하도록 구성했습니다.
 
-- 우아한형제들 락 키 설계: https://techblog.woowahan.com/17416/
-- 토스페이먼츠 Idempotency-Key: https://docs.tosspayments.com/guides/using-api/idempotency-key
-- 포트원 Webhook 사양: https://portone.gitbook.io/docs/result/webhook
-- Kleppmann distributed locking: https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html
-- Grafana k6: https://grafana.com/docs/k6/using-k6/scenarios/executors/ramping-arrival-rate/
+메모리 기반 대기열은 실패 요청을 줄이는 데 효과가 있었지만, 단일 인스턴스 안에서만 대기 순서와 통과 상태를 관리했습니다. 응답시간만 보면 단일 인스턴스 스펙업이 더 낮았지만, 티켓팅 서버는 오픈 직후 장애와 예측 초과 트래픽이 큰 운영 리스크로 이어집니다. 그래서 백엔드 인스턴스를 늘려도 대기열과 좌석 단위 락 상태를 공유할 수 있도록 Redis Sorted Set(ZSET) 기반 대기열과 Redis SET NX/TTL 기반 좌석 락을 적용했습니다.
+
+대기열 디스패처는 여러 인스턴스에서 동시에 실행될 수 있으므로 ShedLock으로 중복 실행을 제한했습니다. 락 만료 이후 늦게 도착한 요청이 좌석 상태를 갱신하지 못하도록 fencing token을 PostgreSQL 갱신 조건에 반영했습니다.
+
+## 부하테스트 및 개선 1. 좌석 예약 경합
+
+[상세 테스트](docs/evidence/seat-reservation-contention.md)
+
+동일 좌석에 여러 예약 요청이 동시에 들어와도 최종 예약은 1건이어야 합니다. 단순 조회 후 저장 방식에서는 여러 요청이 같은 좌석을 예약 가능 상태로 읽은 뒤 각각 저장을 시도할 수 있었습니다.
+
+| 시나리오 | 좌석 조건 | 요청 수 | 예약 방식 | 최종 예약 | 거절 | p99 | 처리량 |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
+| 동일 좌석 경합 | 좌석 1개 | 1,000건 | 비관적 락과 조건부 유니크 인덱스 | 1 | 999 | 586ms | 1490 ops/s |
+| 동일 좌석 경합 | 좌석 1개 | 1,000건 | 상태 조건 기반 UPDATE와 조건부 유니크 인덱스 | 1 | 999 | 192ms | 4219 ops/s |
+| 분산 좌석 요청 | 좌석 1,000개 | 2,000건 | 비관적 락 | 808 | 1192 | 1240ms | 1385 ops/s |
+| 분산 좌석 요청 | 좌석 1,000개 | 2,000건 | 상태 조건 기반 UPDATE | 808 | 1192 | 782ms | 2250 ops/s |
+
+좌석 예약은 상태 조건 기반 UPDATE로 예약 가능 여부를 판단하고, 예약 테이블에는 조건부 유니크 인덱스를 적용했습니다. 이 조합은 동일 좌석 경합에서 최종 예약 1건을 유지하면서 비관적 락보다 p99와 처리량이 더 좋았습니다.
+
+## 부하테스트 및 개선 2. 예매 오픈 피크 트래픽
+
+[상세 테스트](docs/evidence/opening-surge-queue.md)
+
+대기열 없이 5K RPS 부하를 좌석 예약 API로 직접 보내면 애플리케이션 스레드와 DB 커넥션 사용량이 급증했습니다. 처리 한도를 넘은 요청은 실패 응답과 타임아웃으로 종료됐습니다.
+
+| 구성 | 백엔드 | DB | 대기열 위치 | 부하 패턴 | 처리 지표 | 실패/대기 지표 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 대기열 미적용 | 4 CPU | 4 CPU | 없음 | 100-5000 RPS | 좌석 예약 요청=204,043건, 성공=49,194건 | 실패 요청=154,849건 |
+| 메모리 대기열 적용 | 4 CPU | 4 CPU | 인스턴스 메모리 | 100-5000 RPS | 토큰 발급=106,683건, 좌석 예약 성공=44,178건 | 대기 중 타임아웃=0건, 대기 시간 p95=3.6초 |
+
+대기열 미적용 부하에서는 처리 가능한 요청을 넘어선 구간에서 실패 응답과 타임아웃이 발생했습니다. 메모리 기반 대기열 적용 후에는 같은 4 CPU 조건에서 대기 중 타임아웃이 0건으로 유지됐습니다.
+
+## 부하테스트 및 개선 3. Redis 기반 멀티 인스턴스 확장
+
+[상세 테스트](docs/evidence/redis-multi-instance.md)
+
+메모리 기반 대기열은 단일 인스턴스 내부 상태라 백엔드를 늘리면 서버별 대기 순서가 달라집니다. 대기열 통과 처리는 여러 인스턴스에서 동시에 실행되므로, 하나의 대기열 항목은 한 번만 통과 처리되어야 했습니다.
+
+Redis 대기열을 적용한 뒤, 오픈 직후 요청이 몰리는 600 → 800 → 1000 → 1200 RPS 부하에서 백엔드 구성과 HikariCP pool 조건을 비교했습니다.
+
+| 백엔드 구성 | HikariCP pool | 토큰 / 통과 / 예약 성공 | 토큰 발급 실패 | Hikari pending max | PostgreSQL conn max | 전체 p95 |
+| --- | ---: | ---: | ---: | --- | ---: | ---: |
+| 1대 x 2 CPU | 10 | 78,407 / 78,375 / 50,000 | 2,551 | app1 186 | 13 | 5.16초 |
+| 1대 x 4 CPU | 20 | 82,488 / 82,488 / 50,000 | 0 | app1 7 | 22 | 0.51초 |
+| 2대 x 2 CPU | 10 x 2 | 81,394 / 81,394 / 50,000 | 88 | app1 170, app2 54 | 23 | 3.17초 |
+| 2대 x 2 CPU | 20 x 2 | 82,445 / 82,445 / 50,000 | 0 | app1 72, app2 124 | 42 | 0.66초 |
+
+성능 수치만 보면 단일 인스턴스 스펙업이 유리했습니다. 그럼에도 티켓팅 서버는 예매 오픈 직후 장애가 곧바로 운영 리스크로 이어집니다. 예상 트래픽을 산정할 수 있어도 실제 오픈 시점에는 홍보, 팬덤 유입, 봇 요청, 재시도 요청으로 트래픽이 더 크게 몰릴 수 있습니다. 따라서 장애 영향 범위를 줄이고, 여러 백엔드 인스턴스가 대기열과 좌석 락 상태를 공유할 수 있도록 멀티 인스턴스 구조를 선택했습니다.
+
+## 구현 모듈
+
+| 모듈 | 역할 | 주요 확인 내용 |
+| --- | --- | --- |
+| [`basic/`](basic/) | 기본 예약 흐름 | 단순 조회 후 저장 방식에서 좌석 중복 예약 재현 |
+| [`concurrency/`](concurrency/) | 좌석 예약 정합성 | 상태 조건 기반 UPDATE, 조건부 유니크 인덱스, 결제 멱등성 |
+| [`queue/`](queue/) | 메모리 기반 대기열 | 대기열 미적용/적용 비교, 대기 중 타임아웃 확인 |
+| [`distributed/`](distributed/) | Redis 기반 분산 구성 | Redis ZSET 대기열, SET NX/TTL 좌석 락, ShedLock, fencing token |
+
+## 실행
+
+```bash
+# 특정 모듈 테스트
+./gradlew :concurrency:test
+./gradlew :queue:test
+./gradlew :distributed:test
+
+# 특정 모듈 실행
+./gradlew :queue:bootRun
+./gradlew :distributed:bootRun
+```
+
+각 모듈은 독립 docker-compose와 독립 PostgreSQL 포트를 사용합니다.
+
+## 관련 근거
+
+- [docs/evidence/README.md](docs/evidence/README.md)
+- [ticketing-observability](https://github.com/dongwooooooo/ticketing-observability)
+- [seat-lock-alternatives](https://github.com/dongwooooooo/seat-lock-alternatives)
+- [queue-alternatives](https://github.com/dongwooooooo/queue-alternatives)

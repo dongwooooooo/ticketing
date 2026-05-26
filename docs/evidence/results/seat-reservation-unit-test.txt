@@ -1,0 +1,16 @@
+Command
+  ./gradlew :concurrency:test --tests '*SeatLockConcurrencyTest'
+
+Result
+  SeatLockConcurrencyTest
+  input: seat=1, concurrent requests=100
+  success=1
+  rejected=99
+  heldCount=1
+
+Log
+  seatReservationRace total=100 success=1 rejected=99 heldCount=1
+
+Purpose
+  단위 테스트는 동일 좌석 동시 요청에서 최종 예약이 1건만 생성되는지 확인한다.
+  1,000건 성능 비교는 별도 측정 레포와 docs/stage3-entry-rationale.md 수치를 사용한다.

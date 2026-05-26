@@ -1,0 +1,26 @@
+Command
+  ./gradlew :queue:test --tests '*QueueLoadTest'
+
+Case A: token enqueue throughput
+  uniqueTokens=10000
+  enqueueOpsPerSec=67841.6
+  p50EnqueueMs=0.006
+  p99EnqueueMs=0.059
+  wallTimeSec=0.147
+
+Case B: waiting position consistency
+  sampledTokens=100
+  callsPerToken=50
+  totalObservations=4411
+  inconsistencyCount=0
+
+Case C: admit rate sustained
+  expectedAdmits=1000
+  actualAdmits=970
+  ticks=97
+  durationSec=10.040
+  avgAdmitRatePerSec=96.61
+
+Purpose
+  단위 테스트는 메모리 기반 대기열의 토큰 발급, 대기 순서 조회, 통과 속도를 확인한다.
+  5K RPS 피크 부하 비교는 ticketing-observability/stage3-capacity k6 결과를 사용한다.

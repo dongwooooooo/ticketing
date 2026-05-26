@@ -1,0 +1,22 @@
+Commands
+  ./gradlew :distributed:test --tests '*DistributedQueueTest'
+  ./gradlew :distributed:test --tests '*DistributedSeatLockTest'
+  ./gradlew :distributed:test --tests '*FencingTokenTest'
+
+DistributedQueueTest
+  distributedQueueCrossInstance tokenVisible=true admittedOnOtherInstance=true
+  distributedQueueConcurrent instances=2 admitPerCall=50 totalAdmitted=100 admittedCount=100 waitingCount=0 duplicateAdmit=0
+  distributedQueueHighEnqueue threads=50 perThread=20 uniqueTokens=1000 waitingCount=1000
+  distributedQueueFifo enqueued=30 admitted=10 admittedCount=10 waitingCount=20
+
+DistributedSeatLockTest
+  distributedSeatLockContention threads=100 acquired=1 rejected=99 fence=1
+  distributedSeatLockFenceMonotonic fences=1,2,3
+
+FencingTokenTest
+  fencingTokenMonotonic firstFence=1 secondFenceCandidate=2 affectedFirst=1 affectedSecond=0 dbLockToken=1
+  fencingTokenRace fenceA=1 fenceB=2 affectedA=0 affectedB=1 dbLockToken=2 finalStatus=HELD
+
+Purpose
+  단위 테스트는 Redis 대기열의 인스턴스 간 상태 공유, 중복 통과 방지, FIFO, 좌석 단위 락, fencing token을 확인한다.
+  멀티 인스턴스 부하 비교는 ticketing-observability/stage4-capacity k6 결과와 Prometheus 추출값을 사용한다.
