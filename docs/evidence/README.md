@@ -1,14 +1,14 @@
 # 동시성·부하테스트 근거
 
-제출용 PDF의 `Ticketing Concurrency Lab` 섹션에서 `상세 테스트`로 연결되는 근거 문서 인덱스다. PDF는 요약본이고, 이 디렉터리는 테스트 코드, 실행 결과, k6 원본 결과, Grafana/Prometheus 자료를 확인하는 용도다.
+Ticketing Concurrency Lab에서 수행한 동시성 검증, 부하테스트, Grafana/Prometheus 관측 자료를 모은 문서 인덱스다. 각 문서는 문제 상황, 테스트 코드, 실행 결과, k6 원본 요약, 관측 캡처를 함께 확인할 수 있도록 구성했다.
 
 ## 상세 문서
 
-| PDF 구분 | 상세 문서 | 검증 성격 | 핵심 근거 |
+| 주제 | 상세 문서 | 검증 성격 | 주요 결과 |
 | --- | --- | --- | --- |
-| 부하테스트 및 개선 1 | [좌석 예약 경합](seat-reservation-contention.md) | 단위 테스트, 성능 비교 | 동일 좌석 최종 예약 1건, p99 `586ms -> 192ms`, 처리량 `1490 -> 4219 ops/s` |
-| 부하테스트 및 개선 2 | [예매 오픈 피크 트래픽](opening-surge-queue.md) | 단위 테스트, k6 | 대기열 미적용 실패 요청 `154,849건`, 메모리 대기열 적용 후 대기 중 타임아웃 `0건` |
-| 부하테스트 및 개선 3 | [Redis 기반 멀티 인스턴스 확장](redis-multi-instance.md) | 단위 테스트, k6, Prometheus/Grafana | Redis 상태 공유, Hikari pending, PostgreSQL connection, 전체 p95 비교 |
+| 좌석 예약 경합 | [좌석 예약 경합](seat-reservation-contention.md) | 단위 테스트, 성능 비교 | 동일 좌석 최종 예약 1건, p99 `586ms -> 192ms`, 처리량 `1490 -> 4219 ops/s` |
+| 예매 오픈 피크 트래픽 | [예매 오픈 피크 트래픽](opening-surge-queue.md) | 단위 테스트, k6 | 대기열 미적용 실패 요청 `154,849건`, 메모리 대기열 적용 후 대기 중 타임아웃 `0건` |
+| Redis 기반 멀티 인스턴스 확장 | [Redis 기반 멀티 인스턴스 확장](redis-multi-instance.md) | 단위 테스트, k6, Prometheus/Grafana | Redis 상태 공유, Hikari pending, DB connection, 전체 p95 비교 |
 
 ## 공통 검증 환경
 
@@ -47,20 +47,18 @@
 | --- | --- |
 | Stage 2 k6 script | [`stage2-capacity/k6/capacity-probe.js`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage2-capacity/k6/capacity-probe.js) |
 | Stage 3 k6 script | [`stage3-capacity/k6/capacity-probe.js`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage3-capacity/k6/capacity-probe.js) |
-| Stage 3 비교 결과 | [`stage3-capacity/results/comparison.md`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage3-capacity/results/comparison.md) |
+| Stage 3 비교 결과 | [`results/raw/stage3-comparison.md`](results/raw/stage3-comparison.md) |
 | Stage 4 k6 script | [`stage4-capacity/k6/opening-surge.js`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage4-capacity/k6/opening-surge.js) |
-| Stage 4 결과 디렉터리 | [`stage4-capacity/results`](https://github.com/dongwooooooo/ticketing-observability/tree/main/stage4-capacity/results) |
-| Prometheus 추출값 | [`stage4-prometheus-evidence.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/screenshots/portfolio-evidence/stage4-prometheus-evidence.json) |
-| Grafana 캡처 | [`screenshots/portfolio-evidence/selected`](https://github.com/dongwooooooo/ticketing-observability/tree/main/screenshots/portfolio-evidence/selected) |
-| 재현성 메모 | [`REPRODUCIBILITY.md`](https://github.com/dongwooooooo/ticketing-observability/blob/main/screenshots/portfolio-evidence/REPRODUCIBILITY.md) |
+| Prometheus 추출값 | [`results/raw/stage4-prometheus-evidence.json`](results/raw/stage4-prometheus-evidence.json) |
+| Grafana 캡처 | [`assets`](assets/) |
 
 ## 원본 결과 파일
 
 | 구분 | 파일 |
 | --- | --- |
-| 대기열 미적용 4 CPU / 4 CPU | [`stage2-capacity/results/a-4/summary.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage2-capacity/results/a-4/summary.json) |
-| 메모리 대기열 4 CPU / 4 CPU | [`stage3-capacity/results/a-4/summary.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage3-capacity/results/a-4/summary.json) |
-| Redis 1대 x 2 CPU / pool 10 | [`stage4-single-opening-rerun2-1x2-pool10.summary.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage4-capacity/results/stage4-single-opening-rerun2-1x2-pool10.summary.json) |
-| Redis 1대 x 4 CPU / pool 20 | [`stage4-single-opening-rerun2-1x4-pool20.summary.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage4-capacity/results/stage4-single-opening-rerun2-1x4-pool20.summary.json) |
-| Redis 2대 x 2 CPU / pool 10 | [`stage4-dual-opening-rerun1-2x2-pool10.summary.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage4-capacity/results/stage4-dual-opening-rerun1-2x2-pool10.summary.json) |
-| Redis 2대 x 2 CPU / pool 20 | [`stage4-dual-opening-rerun1-2x2-pool20.summary.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage4-capacity/results/stage4-dual-opening-rerun1-2x2-pool20.summary.json) |
+| 대기열 미적용 4 CPU / 4 CPU | [`results/raw/stage2-a4-summary.json`](results/raw/stage2-a4-summary.json) |
+| 메모리 대기열 4 CPU / 4 CPU | [`results/raw/stage3-a4-summary.json`](results/raw/stage3-a4-summary.json) |
+| Redis 1대 x 2 CPU / pool 10 | [`results/raw/stage4-single-1x2-pool10-summary.json`](results/raw/stage4-single-1x2-pool10-summary.json) |
+| Redis 1대 x 4 CPU / pool 20 | [`results/raw/stage4-single-1x4-pool20-summary.json`](results/raw/stage4-single-1x4-pool20-summary.json) |
+| Redis 2대 x 2 CPU / pool 10 | [`results/raw/stage4-dual-2x2-pool10-summary.json`](results/raw/stage4-dual-2x2-pool10-summary.json) |
+| Redis 2대 x 2 CPU / pool 20 | [`results/raw/stage4-dual-2x2-pool20-summary.json`](results/raw/stage4-dual-2x2-pool20-summary.json) |

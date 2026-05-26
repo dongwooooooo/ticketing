@@ -1,10 +1,11 @@
 # 좌석 예약 경합
 
-PDF의 `부하테스트 및 개선 1. 좌석 예약 경합` 상세 근거다.
+동일 좌석에 여러 예약 요청이 동시에 들어오는 상황에서 최종 예약이 1건만 생성되는지 검증한 문서다. 단순 조회 후 저장 방식에서 중복 예약을 재현하고, 비관적 락과 상태 조건 기반 UPDATE의 응답시간과 처리량을 비교했다.
 
-## 테스트 목적
+## 검증 대상
 
 - 동일 좌석에 여러 예약 요청이 동시에 들어와도 최종 예약은 1건만 생성되어야 한다.
+- 단순 조회 후 저장 방식에서 같은 좌석을 여러 요청이 예약할 수 있는지 확인한다.
 - 비관적 락과 상태 조건 기반 UPDATE의 응답시간과 처리량을 비교한다.
 - 예약 테이블의 조건부 유니크 인덱스가 중복 예약을 한 번 더 차단하는지 확인한다.
 
@@ -37,11 +38,12 @@ seatReservationRace total=100 success=1 rejected=99 heldCount=1
 원본 결과:
 
 - [`results/seat-reservation-unit-test.txt`](results/seat-reservation-unit-test.txt)
-- [`01-seat-reservation-race-gradle-report.png`](https://github.com/dongwooooooo/ticketing-observability/blob/main/screenshots/portfolio-evidence/selected/01-seat-reservation-race-gradle-report.png)
+
+![좌석 예약 경합 테스트 결과](assets/seat-reservation-race-gradle-report.png)
 
 ## 성능 비교 결과
 
-아래 표는 별도 측정 레포의 `stress-baseline`과 상태 조건 기반 UPDATE 측정 결과를 PDF에 사용한 수치다. 단위 테스트는 정합성 확인, 이 표는 응답시간과 처리량 비교에 사용했다.
+아래 표는 `seat-lock-alternatives`의 stress-baseline과 상태 조건 기반 UPDATE 측정 결과다. 단위 테스트는 최종 예약 1건 유지 여부를 확인하고, 성능 비교는 p99와 처리량 차이를 확인하는 데 사용했다.
 
 | 시나리오 | 좌석 조건 | 요청 수 | 예약 방식 | 최종 예약 | 거절 | p99 | 처리량 |
 | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
@@ -57,4 +59,4 @@ seatReservationRace total=100 success=1 rejected=99 heldCount=1
 
 ## 결론
 
-비관적 락은 동일 좌석의 최종 예약 1건을 보장했지만, 경합 구간에서 락 대기 시간이 커졌다. 상태 조건 기반 UPDATE와 조건부 유니크 인덱스를 함께 적용한 방식은 같은 정합성 조건을 유지하면서 p99와 처리량이 개선됐다.
+단순 조회 후 저장 방식은 동일 좌석 중복 예약을 만들었다. 비관적 락은 최종 예약 1건을 보장했지만 경합 구간에서 락 대기 시간이 커졌다. 상태 조건 기반 UPDATE와 조건부 유니크 인덱스를 함께 적용한 방식은 같은 정합성 조건을 유지하면서 p99와 처리량이 개선됐다.

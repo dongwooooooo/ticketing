@@ -1,0 +1,255 @@
+{
+  "generatedAt": "2026-05-25T11:41:05.461Z",
+  "prometheusUrl": "http://localhost:9090",
+  "note": "Prometheus uses 6h retention in docker-compose.yml. This JSON freezes the infra metrics needed for portfolio evidence.",
+  "rows": [
+    {
+      "spec": "stage4-single-opening-rerun2-1x2-pool10",
+      "label": "1대 x 2 CPU / pool 10",
+      "summaryPath": "stage4-capacity/results/stage4-single-opening-rerun2-1x2-pool10.summary.json",
+      "activeWindowKst": {
+        "start": "2026-05-25 19:16:25",
+        "end": "2026-05-25 19:18:10",
+        "durationSeconds": 105
+      },
+      "k6": {
+        "httpRequests": 360408,
+        "httpRequestRate": 3577.660515487149,
+        "tokenIssued": 78407,
+        "tokenIssuedRate": 778.3224235805002,
+        "admitted": 78375,
+        "reserveSuccess": 50000,
+        "reserveConflict": 27077,
+        "reserveFailed": 1298,
+        "tokenFailed": 2551,
+        "droppedIterations": 1529,
+        "admitWaitP95Ms": 3593,
+        "totalLatencyP95Ms": 5162
+      },
+      "infra": {
+        "appCpuMax": [
+          {
+            "label": "app1",
+            "max": 1
+          }
+        ],
+        "hikariActiveMax": [
+          {
+            "label": "app1",
+            "max": 10
+          }
+        ],
+        "hikariPendingMax": [
+          {
+            "label": "app1",
+            "max": 186
+          }
+        ],
+        "hikariTimeoutMax": [
+          {
+            "label": "app1",
+            "max": 0
+          }
+        ],
+        "redisOpsMax": 14537.672727272726,
+        "redisCpuMax": 0.0038181818181818174,
+        "postgresConnectionsMax": 13,
+        "postgresCommitRateMax": 779.367647860948
+      }
+    },
+    {
+      "spec": "stage4-single-opening-rerun2-1x4-pool20",
+      "label": "1대 x 4 CPU / pool 20",
+      "summaryPath": "stage4-capacity/results/stage4-single-opening-rerun2-1x4-pool20.summary.json",
+      "activeWindowKst": {
+        "start": "2026-05-25 19:18:45",
+        "end": "2026-05-25 19:20:30",
+        "durationSeconds": 105
+      },
+      "k6": {
+        "httpRequests": 327478,
+        "httpRequestRate": 3269.162075739325,
+        "tokenIssued": 82488,
+        "tokenIssuedRate": 823.4649084933505,
+        "admitted": 82488,
+        "reserveSuccess": 50000,
+        "reserveConflict": 32488,
+        "reserveFailed": 0,
+        "tokenFailed": 0,
+        "droppedIterations": 0,
+        "admitWaitP95Ms": 303,
+        "totalLatencyP95Ms": 507
+      },
+      "infra": {
+        "appCpuMax": [
+          {
+            "label": "app1",
+            "max": 0.7235
+          }
+        ],
+        "hikariActiveMax": [
+          {
+            "label": "app1",
+            "max": 19
+          }
+        ],
+        "hikariPendingMax": [
+          {
+            "label": "app1",
+            "max": 7
+          }
+        ],
+        "hikariTimeoutMax": [
+          {
+            "label": "app1",
+            "max": 0
+          }
+        ],
+        "redisOpsMax": 13947.381818181817,
+        "redisCpuMax": 0.003272727272727273,
+        "postgresConnectionsMax": 22,
+        "postgresCommitRateMax": 753.3317576044072
+      }
+    },
+    {
+      "spec": "stage4-dual-opening-rerun1-2x2-pool10",
+      "label": "2대 x 2 CPU / pool 10씩",
+      "summaryPath": "stage4-capacity/results/stage4-dual-opening-rerun1-2x2-pool10.summary.json",
+      "activeWindowKst": {
+        "start": "2026-05-25 19:04:45",
+        "end": "2026-05-25 19:06:30",
+        "durationSeconds": 105
+      },
+      "k6": {
+        "httpRequests": 333101,
+        "httpRequestRate": 3324.7877926375904,
+        "tokenIssued": 81394,
+        "tokenIssuedRate": 812.4195892355293,
+        "admitted": 81394,
+        "reserveSuccess": 50000,
+        "reserveConflict": 31375,
+        "reserveFailed": 19,
+        "tokenFailed": 88,
+        "droppedIterations": 1002,
+        "admitWaitP95Ms": 1918,
+        "totalLatencyP95Ms": 3168
+      },
+      "infra": {
+        "appCpuMax": [
+          {
+            "label": "app1",
+            "max": 1
+          },
+          {
+            "label": "app2",
+            "max": 1
+          }
+        ],
+        "hikariActiveMax": [
+          {
+            "label": "app1",
+            "max": 10
+          },
+          {
+            "label": "app2",
+            "max": 10
+          }
+        ],
+        "hikariPendingMax": [
+          {
+            "label": "app1",
+            "max": 170
+          },
+          {
+            "label": "app2",
+            "max": 54
+          }
+        ],
+        "hikariTimeoutMax": [
+          {
+            "label": "app1",
+            "max": 1
+          },
+          {
+            "label": "app2",
+            "max": 0
+          }
+        ],
+        "redisOpsMax": 14127.690909090908,
+        "redisCpuMax": 0.0036363636363636364,
+        "postgresConnectionsMax": 23,
+        "postgresCommitRateMax": 800.1454545454545
+      }
+    },
+    {
+      "spec": "stage4-dual-opening-rerun1-2x2-pool20",
+      "label": "2대 x 2 CPU / pool 20씩",
+      "summaryPath": "stage4-capacity/results/stage4-dual-opening-rerun1-2x2-pool20.summary.json",
+      "activeWindowKst": {
+        "start": "2026-05-25 19:07:05",
+        "end": "2026-05-25 19:08:50",
+        "durationSeconds": 105
+      },
+      "k6": {
+        "httpRequests": 320339,
+        "httpRequestRate": 3193.7097698762122,
+        "tokenIssued": 82445,
+        "tokenIssuedRate": 821.9586187677564,
+        "admitted": 82445,
+        "reserveSuccess": 50000,
+        "reserveConflict": 32445,
+        "reserveFailed": 0,
+        "tokenFailed": 0,
+        "droppedIterations": 35,
+        "admitWaitP95Ms": 318,
+        "totalLatencyP95Ms": 657
+      },
+      "infra": {
+        "appCpuMax": [
+          {
+            "label": "app1",
+            "max": 1
+          },
+          {
+            "label": "app2",
+            "max": 1
+          }
+        ],
+        "hikariActiveMax": [
+          {
+            "label": "app1",
+            "max": 20
+          },
+          {
+            "label": "app2",
+            "max": 20
+          }
+        ],
+        "hikariPendingMax": [
+          {
+            "label": "app1",
+            "max": 72
+          },
+          {
+            "label": "app2",
+            "max": 124
+          }
+        ],
+        "hikariTimeoutMax": [
+          {
+            "label": "app1",
+            "max": 0
+          },
+          {
+            "label": "app2",
+            "max": 0
+          }
+        ],
+        "redisOpsMax": 13856.763636363636,
+        "redisCpuMax": 0.0034546082656048294,
+        "postgresConnectionsMax": 42,
+        "postgresCommitRateMax": 776.4727272727272
+      }
+    }
+  ]
+}

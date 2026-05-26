@@ -6,7 +6,7 @@
 
 - 기간: 2026.04 ~ 2026.05
 - Notion: [Ticketing Concurrency Lab](https://www.notion.so/Ticketing-Concurrency-Lab-36373344235881fdb466f9b0636095df)
-- 상세 근거: [docs/evidence/README.md](docs/evidence/README.md)
+- 검증 자료: [docs/evidence/README.md](docs/evidence/README.md)
 - 기술 스택: Java, Spring Boot, PostgreSQL, Redis, JPA, Flyway, Testcontainers, k6, Prometheus, Grafana
 - 담당 범위: 좌석 예약 방식 비교, 대기열 구현, Redis 기반 분산 구성, 결제 상태 전이, 부하테스트
 - 검증 범위: 실제 PG/카드사 호출은 제외하고 Mock 결제 게이트웨이와 로컬 부하테스트 결과를 사용했습니다.

@@ -1,8 +1,8 @@
 # Redis 기반 멀티 인스턴스 확장
 
-PDF의 `부하테스트 및 개선 3. Redis 기반 멀티 인스턴스 확장` 상세 근거다.
+메모리 기반 대기열의 단일 인스턴스 한계를 확인하고, Redis 기반 대기열과 좌석 락이 여러 백엔드 인스턴스에서 같은 상태를 공유하는지 검증한 문서다.
 
-## 테스트 목적
+## 검증 대상
 
 - 메모리 기반 대기열의 단일 인스턴스 한계를 확인한다.
 - Redis 기반 대기열과 좌석 락이 여러 백엔드 인스턴스에서 같은 상태를 공유하는지 확인한다.
@@ -48,8 +48,8 @@ fencingTokenRace fenceA=1 fenceB=2 affectedA=0 affectedB=1 dbLockToken=2 finalSt
 원본 결과:
 
 - [`results/redis-distributed-unit-tests.txt`](results/redis-distributed-unit-tests.txt)
-- [`03-redis-distributed-state-gradle-report.png`](https://github.com/dongwooooooo/ticketing-observability/blob/main/screenshots/portfolio-evidence/selected/03-redis-distributed-state-gradle-report.png)
-- [`targeted-tests.log`](https://github.com/dongwooooooo/ticketing-observability/blob/main/screenshots/portfolio-evidence/targeted-tests.log)
+
+![Redis 분산 상태 단위 테스트 결과](assets/redis-distributed-state-gradle-report.png)
 
 ## k6 부하테스트 조건
 
@@ -57,8 +57,8 @@ fencingTokenRace fenceA=1 fenceB=2 affectedA=0 affectedB=1 dbLockToken=2 finalSt
 | --- | --- |
 | 부하 패턴 | `600 -> 800 -> 1000 -> 1200 RPS` |
 | k6 스크립트 | [`stage4-capacity/k6/opening-surge.js`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage4-capacity/k6/opening-surge.js) |
-| 관측 자료 | [`stage4-prometheus-evidence.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/screenshots/portfolio-evidence/stage4-prometheus-evidence.json) |
-| Grafana 캡처 | [`03-redis-multi-instance-hikari-active-pending.png`](https://github.com/dongwooooooo/ticketing-observability/blob/main/screenshots/portfolio-evidence/selected/03-redis-multi-instance-hikari-active-pending.png), [`03-redis-multi-instance-redis-postgres-load.png`](https://github.com/dongwooooooo/ticketing-observability/blob/main/screenshots/portfolio-evidence/selected/03-redis-multi-instance-redis-postgres-load.png) |
+| 관측 자료 | [`results/raw/stage4-prometheus-evidence.json`](results/raw/stage4-prometheus-evidence.json) |
+| Grafana 캡처 | [`redis-multi-instance-hikari-active-pending.png`](assets/redis-multi-instance-hikari-active-pending.png), [`redis-multi-instance-redis-db-load.png`](assets/redis-multi-instance-redis-db-load.png) |
 
 ## k6 / Prometheus 결과
 
@@ -72,10 +72,14 @@ fencingTokenRace fenceA=1 fenceB=2 affectedA=0 affectedB=1 dbLockToken=2 finalSt
 원본 summary:
 
 - [`results/k6-measurements.md`](results/k6-measurements.md)
-- [`stage4-single-opening-rerun2-1x2-pool10.summary.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage4-capacity/results/stage4-single-opening-rerun2-1x2-pool10.summary.json)
-- [`stage4-single-opening-rerun2-1x4-pool20.summary.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage4-capacity/results/stage4-single-opening-rerun2-1x4-pool20.summary.json)
-- [`stage4-dual-opening-rerun1-2x2-pool10.summary.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage4-capacity/results/stage4-dual-opening-rerun1-2x2-pool10.summary.json)
-- [`stage4-dual-opening-rerun1-2x2-pool20.summary.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage4-capacity/results/stage4-dual-opening-rerun1-2x2-pool20.summary.json)
+- [`results/raw/stage4-single-1x2-pool10-summary.json`](results/raw/stage4-single-1x2-pool10-summary.json)
+- [`results/raw/stage4-single-1x4-pool20-summary.json`](results/raw/stage4-single-1x4-pool20-summary.json)
+- [`results/raw/stage4-dual-2x2-pool10-summary.json`](results/raw/stage4-dual-2x2-pool10-summary.json)
+- [`results/raw/stage4-dual-2x2-pool20-summary.json`](results/raw/stage4-dual-2x2-pool20-summary.json)
+
+![HikariCP active/pending](assets/redis-multi-instance-hikari-active-pending.png)
+
+![Redis와 DB 부하](assets/redis-multi-instance-redis-db-load.png)
 
 ## 해석
 

@@ -1,8 +1,8 @@
 # 예매 오픈 피크 트래픽
 
-PDF의 `부하테스트 및 개선 2. 예매 오픈 피크 트래픽` 상세 근거다.
+예매 오픈 직후 5K RPS 부하에서 좌석 예약 API 직접 처리와 메모리 기반 대기열 적용 결과를 비교한 문서다. 처리 한도를 넘은 요청이 실패 응답으로 종료되는지, 대기 상태로 유지되는지 확인했다.
 
-## 테스트 목적
+## 검증 대상
 
 - 예매 오픈 직후 5K RPS 부하에서 대기열 미적용과 메모리 대기열 적용 결과를 비교한다.
 - 처리 한도를 넘은 요청이 실패 응답으로 종료되는지, 대기 상태로 유지되는지 확인한다.
@@ -54,7 +54,7 @@ avgAdmitRatePerSec=96.61
 | 부하 패턴 | `100 -> 500 -> 1000 -> 2000 -> 3500 -> 5000 RPS` | `100 -> 500 -> 1000 -> 2000 -> 3500 -> 5000 RPS` |
 | 백엔드 / DB | 4 CPU / 4 CPU | 4 CPU / 4 CPU |
 | k6 스크립트 | [`stage2-capacity/k6/capacity-probe.js`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage2-capacity/k6/capacity-probe.js) | [`stage3-capacity/k6/capacity-probe.js`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage3-capacity/k6/capacity-probe.js) |
-| 원본 결과 | [`stage2-capacity/results/a-4/summary.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage2-capacity/results/a-4/summary.json) | [`stage3-capacity/results/a-4/summary.json`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage3-capacity/results/a-4/summary.json) |
+| 원본 결과 | [`results/raw/stage2-a4-summary.json`](results/raw/stage2-a4-summary.json) | [`results/raw/stage3-a4-summary.json`](results/raw/stage3-a4-summary.json) |
 
 ## k6 결과
 
@@ -66,9 +66,11 @@ avgAdmitRatePerSec=96.61
 Grafana/결과 원본:
 
 - [`results/k6-measurements.md`](results/k6-measurements.md)
-- [`stage3-capacity/results/comparison.md`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage3-capacity/results/comparison.md)
-- [`02-opening-surge-dropped-failed.png`](https://github.com/dongwooooooo/ticketing-observability/blob/main/screenshots/portfolio-evidence/selected/02-opening-surge-dropped-failed.png)
-- [`02-opening-surge-wait-total-latency.png`](https://github.com/dongwooooooo/ticketing-observability/blob/main/screenshots/portfolio-evidence/selected/02-opening-surge-wait-total-latency.png)
+- [`results/raw/stage3-comparison.md`](results/raw/stage3-comparison.md)
+
+![대기열 미적용 실패 요청과 대기열 적용 결과](assets/opening-surge-failed-requests.png)
+
+![대기 시간과 전체 응답시간](assets/opening-surge-wait-total-latency.png)
 
 ## 결론
 
