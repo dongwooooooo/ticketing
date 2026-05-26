@@ -8,14 +8,12 @@
 - 처리 한도를 넘은 요청이 실패 응답으로 종료되는지, 대기 상태로 유지되는지 확인한다.
 - 대기열 적용 후 사용자 대기 시간이 어느 정도로 나타나는지 확인한다.
 
-## 테스트 코드
+## 상세 테스트
 
-| 구분 | 경로 | 확인 내용 |
+| 구분 | 상세 문서 | 확인 내용 |
 | --- | --- | --- |
-| 대기열 부하 단위 테스트 | [`queue/src/test/java/com/dongwoo/ticketing/QueueLoadTest.java`](../../queue/src/test/java/com/dongwoo/ticketing/QueueLoadTest.java) | 토큰 발급, 순서 일관성, 통과 속도 |
-| 대기열 정상 흐름 | [`queue/src/test/java/com/dongwoo/ticketing/HappyPathIntegrationTest.java`](../../queue/src/test/java/com/dongwoo/ticketing/HappyPathIntegrationTest.java) | 토큰 발급 후 좌석 예약까지 이어지는 흐름 |
-| 메모리 대기열 | [`queue/src/main/java/com/dongwoo/ticketing/queue/InProcessWaitingQueue.java`](../../queue/src/main/java/com/dongwoo/ticketing/queue/InProcessWaitingQueue.java) | 단일 인스턴스 대기열 |
-| 대기열 통과 처리 | [`queue/src/main/java/com/dongwoo/ticketing/queue/WaitingQueueDispatcher.java`](../../queue/src/main/java/com/dongwoo/ticketing/queue/WaitingQueueDispatcher.java) | 대기열에서 좌석 예약 API로 넘길 토큰 처리 |
+| 메모리 대기열 단위 테스트 | [메모리 대기열 단위 테스트](tests/queue-load.md) | 토큰 발급, 순서 일관성, 통과 속도 |
+| 예매 오픈 피크 트래픽 | [예매 오픈 피크 트래픽 k6 테스트](tests/opening-surge-k6.md) | 대기열 미적용과 메모리 대기열 적용 비교, Grafana 결과 해석 |
 
 ## 실행 명령
 

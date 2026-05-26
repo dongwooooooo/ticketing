@@ -24,13 +24,19 @@ Ticketing Concurrency Lab에서 수행한 동시성 검증, 부하테스트, Gra
 
 ## 단위 테스트 코드
 
-| 구분 | 테스트 코드 | 확인 내용 |
+| 구분 | 상세 문서 | 확인 내용 |
 | --- | --- | --- |
-| 좌석 예약 경합 | [`SeatLockConcurrencyTest.java`](../../concurrency/src/test/java/com/dongwoo/ticketing/concurrency/SeatLockConcurrencyTest.java) | 동일 좌석 동시 요청에서 최종 예약 1건 유지 |
-| 메모리 대기열 | [`QueueLoadTest.java`](../../queue/src/test/java/com/dongwoo/ticketing/QueueLoadTest.java) | 토큰 발급, 순서 일관성, 통과 속도 |
-| Redis 대기열 | [`DistributedQueueTest.java`](../../distributed/src/test/java/com/dongwoo/ticketing/DistributedQueueTest.java) | 인스턴스 간 토큰 조회, 중복 통과 방지, FIFO |
-| Redis 좌석 락 | [`DistributedSeatLockTest.java`](../../distributed/src/test/java/com/dongwoo/ticketing/DistributedSeatLockTest.java) | 동일 좌석 동시 락 획득 1건 |
-| Fencing token | [`FencingTokenTest.java`](../../distributed/src/test/java/com/dongwoo/ticketing/FencingTokenTest.java) | 늦게 도착한 이전 락 보유자의 갱신 차단 |
+| 중복 예약 재현 | [중복 예약 재현 테스트](tests/seat-race-repro.md) | 단순 조회 후 저장 방식의 좌석 예약 경합 재현 |
+| 좌석 예약 경합 | [좌석 예약 경합 테스트](tests/seat-lock-concurrency.md) | 동일 좌석 동시 요청에서 최종 예약 1건 유지 |
+| 메모리 대기열 | [메모리 대기열 단위 테스트](tests/queue-load.md) | 토큰 발급, 순서 일관성, 통과 속도 |
+| Redis 분산 상태 | [Redis 분산 상태 단위 테스트](tests/redis-distributed-state.md) | 인스턴스 간 토큰 조회, 중복 통과 방지, FIFO, 좌석 락, fencing token |
+
+## k6 / Grafana 결과 해석
+
+| 구분 | 상세 문서 | 확인 내용 |
+| --- | --- | --- |
+| 예매 오픈 피크 트래픽 | [예매 오픈 피크 트래픽 k6 테스트](tests/opening-surge-k6.md) | 대기열 미적용과 메모리 대기열 적용 비교, Grafana 결과 해석 |
+| Redis 멀티 인스턴스 | [Redis 멀티 인스턴스 k6 테스트](tests/redis-multi-instance-k6.md) | 단일 인스턴스 스펙업과 백엔드 2대 구성 비교, HikariCP/Redis/DB 지표 해석 |
 
 ## 실행 결과 로그
 

@@ -8,16 +8,12 @@
 - Redis 기반 대기열과 좌석 락이 여러 백엔드 인스턴스에서 같은 상태를 공유하는지 확인한다.
 - 단일 인스턴스 스펙업과 멀티 인스턴스 구성의 응답시간, HikariCP pending, DB connection을 비교한다.
 
-## 테스트 코드
+## 상세 테스트
 
-| 구분 | 경로 | 확인 내용 |
+| 구분 | 상세 문서 | 확인 내용 |
 | --- | --- | --- |
-| Redis 대기열 | [`distributed/src/test/java/com/dongwoo/ticketing/DistributedQueueTest.java`](../../distributed/src/test/java/com/dongwoo/ticketing/DistributedQueueTest.java) | 인스턴스 간 토큰 조회, 중복 통과 방지, FIFO |
-| Redis 좌석 락 | [`distributed/src/test/java/com/dongwoo/ticketing/DistributedSeatLockTest.java`](../../distributed/src/test/java/com/dongwoo/ticketing/DistributedSeatLockTest.java) | 동일 좌석 동시 락 획득 1건 |
-| Fencing token | [`distributed/src/test/java/com/dongwoo/ticketing/FencingTokenTest.java`](../../distributed/src/test/java/com/dongwoo/ticketing/FencingTokenTest.java) | 늦게 도착한 이전 락 보유자의 갱신 차단 |
-| Redis 대기열 구현 | [`distributed/src/main/java/com/dongwoo/ticketing/queue/RedisWaitingQueue.java`](../../distributed/src/main/java/com/dongwoo/ticketing/queue/RedisWaitingQueue.java) | Redis Sorted Set 기반 대기열 |
-| Redis 좌석 락 구현 | [`distributed/src/main/java/com/dongwoo/ticketing/lock/DistributedSeatLock.java`](../../distributed/src/main/java/com/dongwoo/ticketing/lock/DistributedSeatLock.java) | SET NX / TTL 기반 좌석 락 |
-| 예약 서비스 | [`distributed/src/main/java/com/dongwoo/ticketing/service/ReservationService.java`](../../distributed/src/main/java/com/dongwoo/ticketing/service/ReservationService.java) | 좌석 락, fencing token, DB 갱신 조건 적용 |
+| Redis 분산 상태 단위 테스트 | [Redis 분산 상태 단위 테스트](tests/redis-distributed-state.md) | 인스턴스 간 토큰 조회, 중복 통과 방지, FIFO, 좌석 락, fencing token |
+| Redis 멀티 인스턴스 k6 테스트 | [Redis 멀티 인스턴스 k6 테스트](tests/redis-multi-instance-k6.md) | 단일 인스턴스 스펙업과 백엔드 2대 구성 비교, Grafana 결과 해석 |
 
 ## 실행 명령
 
@@ -85,7 +81,7 @@ fencingTokenRace fenceA=1 fenceB=2 affectedA=0 affectedB=1 dbLockToken=2 finalSt
 
 `1대 x 4 CPU / pool 20`은 전체 p95 `0.51초`로 가장 낮았다. 로컬 테스트의 응답시간만 보면 단일 인스턴스 스펙업이 유리했다.
 
-`2대 x 2 CPU / pool 20`은 전체 p95 `0.66초`, 토큰 발급 실패 `0건`을 기록했다. 같은 멀티 인스턴스 구성에서도 pool 10에서는 Hikari pending이 커지고 토큰 발급 실패가 발생했으므로, 서버 수뿐 아니라 DB connection 설정도 함께 봐야 했다.
+`2대 x 2 CPU / pool 20`은 전체 p95 `0.66초`, 토큰 발급 실패 `0건`을 기록했다. 같은 멀티 인스턴스 구성에서도 pool 10에서는 Hikari pending이 커지고 토큰 발급 실패가 발생했으므로, 서버 수와 DB connection 설정을 함께 봐야 했다.
 
 멀티 인스턴스 구조를 선택한 이유는 단순 응답시간 우위가 아니다. 티켓팅 서버는 예매 오픈 직후 장애가 곧바로 운영 리스크로 이어지고, 실제 오픈 시점에는 홍보, 팬덤 유입, 봇 요청, 재시도 요청으로 예측보다 큰 트래픽이 들어올 수 있다. 따라서 여러 백엔드 인스턴스가 같은 대기열과 좌석 락 상태를 공유할 수 있도록 Redis 기반 구조를 사용했다.
 

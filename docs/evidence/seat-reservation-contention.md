@@ -9,14 +9,13 @@
 - 비관적 락과 상태 조건 기반 UPDATE의 응답시간과 처리량을 비교한다.
 - 예약 테이블의 조건부 유니크 인덱스가 중복 예약을 한 번 더 차단하는지 확인한다.
 
-## 테스트 코드
+## 상세 테스트
 
-| 구분 | 경로 | 확인 내용 |
+| 구분 | 상세 문서 | 확인 내용 |
 | --- | --- | --- |
-| 중복 예약 재현 | [`basic/src/test/java/com/dongwoo/ticketing/repro/SeatRaceReproTest.java`](../../basic/src/test/java/com/dongwoo/ticketing/repro/SeatRaceReproTest.java) | 단순 조회 후 저장 방식에서 같은 좌석을 여러 요청이 예약할 수 있는지 확인 |
-| 좌석 예약 경합 | [`concurrency/src/test/java/com/dongwoo/ticketing/concurrency/SeatLockConcurrencyTest.java`](../../concurrency/src/test/java/com/dongwoo/ticketing/concurrency/SeatLockConcurrencyTest.java) | 동일 좌석 동시 요청에서 최종 예약 1건 유지 |
-| 예약 서비스 | [`concurrency/src/main/java/com/dongwoo/ticketing/service/ReservationService.java`](../../concurrency/src/main/java/com/dongwoo/ticketing/service/ReservationService.java) | 좌석 상태 변경과 예약 생성 흐름 |
-| DB 제약 | [`concurrency/src/main/resources/db/migration/V3__concurrency_constraints.sql`](../../concurrency/src/main/resources/db/migration/V3__concurrency_constraints.sql) | 예약 테이블 조건부 유니크 인덱스 |
+| 중복 예약 재현 | [중복 예약 재현 테스트](tests/seat-race-repro.md) | 단순 조회 후 저장 방식에서 같은 좌석을 여러 요청이 예약할 수 있는지 확인 |
+| 좌석 예약 경합 | [좌석 예약 경합 테스트](tests/seat-lock-concurrency.md) | 동일 좌석 동시 요청에서 최종 예약 1건 유지 |
+| 성능 비교 | [`seat-lock-alternatives`](https://github.com/dongwooooooo/seat-lock-alternatives) | 비관적 락과 상태 조건 기반 UPDATE의 p99, 처리량 비교 |
 
 ## 실행 명령
 
