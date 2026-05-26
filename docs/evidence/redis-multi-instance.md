@@ -53,17 +53,16 @@ fencingTokenRace fenceA=1 fenceB=2 affectedA=0 affectedB=1 dbLockToken=2 finalSt
 | --- | --- |
 | 부하 패턴 | `600 -> 800 -> 1000 -> 1200 RPS` |
 | k6 스크립트 | [`stage4-capacity/k6/opening-surge.js`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage4-capacity/k6/opening-surge.js) |
-| 관측 자료 | [`results/raw/stage4-prometheus-evidence.json`](results/raw/stage4-prometheus-evidence.json) |
+| 관측 자료 | [`results/prometheus-timeseries/`](results/prometheus-timeseries/) |
 | Grafana 캡처 | [`redis-multi-instance-hikari-active-pending.png`](assets/redis-multi-instance-hikari-active-pending.png), [`redis-multi-instance-redis-db-load.png`](assets/redis-multi-instance-redis-db-load.png) |
 
 ## k6 / Prometheus 결과
 
 | 백엔드 구성 | HikariCP pool | 토큰 / 통과 / 예약 성공 | 토큰 발급 실패 | Hikari pending max | PostgreSQL conn max | 전체 p95 |
 | --- | ---: | ---: | ---: | --- | ---: | ---: |
-| 1대 x 2 CPU | 10 | 78,407 / 78,375 / 50,000 | 2,551 | app1 186 | 13 | 5.16초 |
-| 1대 x 4 CPU | 20 | 82,488 / 82,488 / 50,000 | 0 | app1 7 | 22 | 0.51초 |
-| 2대 x 2 CPU | 10 x 2 | 81,394 / 81,394 / 50,000 | 88 | app1 170, app2 54 | 23 | 3.17초 |
-| 2대 x 2 CPU | 20 x 2 | 82,445 / 82,445 / 50,000 | 0 | app1 72, app2 124 | 42 | 0.66초 |
+| 1대 x 2 CPU | 10 | 66,467 / 65,085 / 49,349 | 12,490 | app1 186 | 12 | 9.63초 |
+| 1대 x 4 CPU | 20 | 82,487 / 82,487 / 50,000 | 0 | app1 30 | 22 | 0.49초 |
+| 2대 x 2 CPU | 10 x 2 | 79,441 / 79,441 / 50,000 | 1,394 | app1 138, app2 180 | 22 | 4.90초 |
 
 원본 summary:
 
@@ -71,7 +70,9 @@ fencingTokenRace fenceA=1 fenceB=2 affectedA=0 affectedB=1 dbLockToken=2 finalSt
 - [`results/raw/stage4-single-1x2-pool10-summary.json`](results/raw/stage4-single-1x2-pool10-summary.json)
 - [`results/raw/stage4-single-1x4-pool20-summary.json`](results/raw/stage4-single-1x4-pool20-summary.json)
 - [`results/raw/stage4-dual-2x2-pool10-summary.json`](results/raw/stage4-dual-2x2-pool10-summary.json)
-- [`results/raw/stage4-dual-2x2-pool20-summary.json`](results/raw/stage4-dual-2x2-pool20-summary.json)
+- [`results/prometheus-timeseries/stage4-single-opening-portfolio-single-1x2-pool10-r2.json`](results/prometheus-timeseries/stage4-single-opening-portfolio-single-1x2-pool10-r2.json)
+- [`results/prometheus-timeseries/stage4-single-opening-portfolio-single-1x4-pool20-r1.json`](results/prometheus-timeseries/stage4-single-opening-portfolio-single-1x4-pool20-r1.json)
+- [`results/prometheus-timeseries/stage4-dual-opening-portfolio-dual-2x2-pool10-r1.json`](results/prometheus-timeseries/stage4-dual-opening-portfolio-dual-2x2-pool10-r1.json)
 
 ![HikariCP active/pending](assets/redis-multi-instance-hikari-active-pending.png)
 
@@ -79,9 +80,9 @@ fencingTokenRace fenceA=1 fenceB=2 affectedA=0 affectedB=1 dbLockToken=2 finalSt
 
 ## 해석
 
-`1대 x 4 CPU / pool 20`은 전체 p95 `0.51초`로 가장 낮았다. 로컬 테스트의 응답시간만 보면 단일 인스턴스 스펙업이 유리했다.
+`1대 x 4 CPU / pool 20`은 전체 p95 `0.49초`로 가장 낮았다. 로컬 테스트의 응답시간만 보면 단일 인스턴스 스펙업이 유리했다.
 
-`2대 x 2 CPU / pool 20`은 전체 p95 `0.66초`, 토큰 발급 실패 `0건`을 기록했다. 같은 멀티 인스턴스 구성에서도 pool 10에서는 Hikari pending이 커지고 토큰 발급 실패가 발생했으므로, 서버 수와 DB connection 설정을 함께 봐야 했다.
+`2대 x 2 CPU / pool 10 x 2`는 전체 p95 `4.90초`, 토큰 발급 실패 `1,394건`을 기록했다. 총 CPU와 총 DB pool은 `1대 x 4 CPU / pool 20`과 같지만, 요청 라우팅과 Redis 상태 공유가 추가되면서 응답시간은 더 길게 나타났다.
 
 멀티 인스턴스 구조를 선택한 이유는 단순 응답시간 우위가 아니다. 티켓팅 서버는 예매 오픈 직후 장애가 곧바로 운영 리스크로 이어지고, 실제 오픈 시점에는 홍보, 팬덤 유입, 봇 요청, 재시도 요청으로 예측보다 큰 트래픽이 들어올 수 있다. 따라서 여러 백엔드 인스턴스가 같은 대기열과 좌석 락 상태를 공유할 수 있도록 Redis 기반 구조를 사용했다.
 

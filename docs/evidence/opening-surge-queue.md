@@ -53,18 +53,20 @@ avgAdmitRatePerSec=96.61
 | 백엔드 / DB | 4 CPU / 4 CPU | 4 CPU / 4 CPU |
 | k6 스크립트 | [`stage2-capacity/k6/capacity-probe.js`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage2-capacity/k6/capacity-probe.js) | [`stage3-capacity/k6/capacity-probe.js`](https://github.com/dongwooooooo/ticketing-observability/blob/main/stage3-capacity/k6/capacity-probe.js) |
 | 원본 결과 | [`results/raw/stage2-a4-summary.json`](results/raw/stage2-a4-summary.json) | [`results/raw/stage3-a4-summary.json`](results/raw/stage3-a4-summary.json) |
+| Prometheus 시계열 | [`portfolio-stage2-a4-r2.json`](results/prometheus-timeseries/portfolio-stage2-a4-r2.json) | [`portfolio-stage3-a4-r1.json`](results/prometheus-timeseries/portfolio-stage3-a4-r1.json) |
 
 ## k6 결과
 
-| 구성 | 요청/토큰 | 좌석 예약 성공 | 실패 요청 | 대기 중 타임아웃 | 대기 시간 p95 |
+| 구성 | 요청/토큰 | 좌석 예약 성공 | 실패 요청 | 대기 중 제한 시간 초과 | 대기 시간 p95 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| 대기열 미적용 | 좌석 예약 요청 `204,043건` | `49,194건` | `154,849건` | 해당 없음 | 해당 없음 |
-| 메모리 대기열 적용 | 토큰 발급 `106,683건` | `44,178건` | 좌석 매진 이후 거절 `62,505건` | `0건` | `3.6초` |
+| 대기열 미적용 | 좌석 예약 요청 `230,858건` | `49,492건` | `181,366건` | 해당 없음 | 해당 없음 |
+| 메모리 대기열 적용 | 토큰 발급 `119,683건`, 대기열 통과 `119,683건` | `45,488건` | 좌석 매진 이후 거절 `74,195건` | `0건` | `4.37초` |
 
 Grafana/결과 원본:
 
 - [`results/k6-measurements.md`](results/k6-measurements.md)
-- [`results/raw/stage3-comparison.md`](results/raw/stage3-comparison.md)
+- [`results/prometheus-timeseries/portfolio-stage2-a4-r2.json`](results/prometheus-timeseries/portfolio-stage2-a4-r2.json)
+- [`results/prometheus-timeseries/portfolio-stage3-a4-r1.json`](results/prometheus-timeseries/portfolio-stage3-a4-r1.json)
 
 ![대기열 미적용 실패 요청과 대기열 적용 결과](assets/opening-surge-failed-requests.png)
 
@@ -72,4 +74,4 @@ Grafana/결과 원본:
 
 ## 결론
 
-대기열 미적용 부하에서는 처리 한도를 넘은 요청이 실패 응답과 타임아웃으로 종료됐다. 메모리 기반 대기열 적용 후에는 같은 4 CPU 조건에서 대기 중 타임아웃이 0건으로 유지됐다. 이 결과를 근거로 피크 요청을 좌석 예약 API 앞에서 바로 처리하지 않고, 대기열에서 순서를 받은 요청만 좌석 예약 API로 전달하는 구조를 선택했다.
+대기열 미적용 부하에서는 처리 한도를 넘은 요청이 실패 응답과 제한 시간 초과로 종료됐다. 메모리 기반 대기열 적용 후에는 같은 4 CPU 조건에서 대기 중 제한 시간 초과가 0건으로 유지됐다. 이 결과를 근거로 피크 요청을 좌석 예약 API 앞에서 바로 처리하지 않고, 대기열에서 순서를 받은 요청만 좌석 예약 API로 전달하는 구조를 선택했다.
